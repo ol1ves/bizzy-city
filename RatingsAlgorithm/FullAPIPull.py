@@ -218,10 +218,25 @@ if __name__ == "__main__":
     print(f"{'Rank':<5} {'Category':<22} {'Score':<8} {'Share':<8} {'G-Star':<8} {'Y-Star':<8} {'Pain Points'}")
     print("─" * 105)
     for i, res in enumerate(final_ranked, 1):
+        # Default to LOW
         pains = []
+        pain_level = "LOW"
+
         if res['y']:
-            if res['y']['complaint_rate'] > 0.18: pains.append("Poor Quality")
-            if res['y']['wait_rate'] > 0.12:      pains.append("Wait Times")
+            complaint_rate = res['y'].get('complaint_rate', 0)
+            wait_rate = res['y'].get('wait_rate', 0)
+
+            # 1. HIGH PAIN: Poor quality is a severe market gap
+            if complaint_rate > 0.18:
+                pain_level = "HIGH"
+
+            # 2. MED PAIN: High wait times with decent quality
+            # (Only set to MED if it wasn't already set to HIGH by complaints)
+            elif wait_rate > 0.12:
+                pain_level = "MED"
+
+        # Store the result back into the object for the printer
+        pains.append(pain_level)
 
         print(
             f"{i:<5} {res['cat']:<22} {res['score']:<8.1f} {res['share']:<8.1%} {res['g']['top_rating']:<8} {res['y']['yelp_rating'] if res['y'] else 'N/A':<8} {', '.join(pains) if pains else '-'}")

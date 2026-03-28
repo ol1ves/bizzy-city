@@ -1,0 +1,349 @@
+[
+  {
+    "loopnet_id": "33310009",
+    "loopnet_url": "https://www.loopnet.com/Listing/93-Allen-St-New-York-NY/33310009/",
+    "address": "93 Allen St",
+    "city": "New York",
+    "state": "NY",
+    "zip_code": "10002",
+    "property_type": "Retail",
+    "listing_type": "for_lease",
+    "square_footage": 1800,
+    "price_per_sqft_yr": null,
+    "year_built": null,
+    "scraped_at": "2026-03-28T00:00:00Z",
+    "photo_urls": [
+      "https://images1.loopnet.com/i2/ig3XHu9CeFAVMJgN3i9cEG6uLtNvAKhpeTiVRWLrhMA/110/93-Allen-St-New-York-NY-Primary-Photo-1-Large.jpg",
+      "https://images1.loopnet.com/i2/N5_gORHNRfWGts4jIiyAxNEbsPSbfYTi9QtFMCbRwcg/110/93-Allen-St-New-York-NY-Building-Photo-2-Large.jpg",
+      "https://images1.loopnet.com/i2/pYhuW9qDzJFmT5cDvD2XC1n9-sZq8ZnNMjb1DtH5El8/110/93-Allen-St-New-York-NY-Building-Photo-3-Large.jpg"
+    ]
+  },
+  {
+    "loopnet_id": "37005863",
+    "loopnet_url": "https://www.loopnet.com/Listing/335-First-Ave-New-York-NY/37005863/",
+    "address": "335 First Ave",
+    "city": "New York",
+    "state": "NY",
+    "zip_code": "10003",
+    "property_type": "Retail",
+    "listing_type": "for_lease",
+    "square_footage": 1650,
+    "price_per_sqft_yr": 95.00,
+    "year_built": null,
+    "scraped_at": "2026-03-28T00:00:00Z",
+    "photo_urls": [
+      "https://images1.loopnet.com/i2/8QHEOb9TJsHWrfdBmHB-mVF_VHZ0bo9MTVL4DnKCD7U/110/335-First-Ave-New-York-NY-Primary-Photo-1-Large.jpg",
+      "https://images1.loopnet.com/i2/d-_e2oi-W4yF7WVd8Zce6wqX0t0sj_eHN4mIxO2-_pQ/110/335-First-Ave-New-York-NY-Building-Photo-2-Large.jpg",
+      "https://images1.loopnet.com/i2/ezxNlNlufjMbd4cuDgdUrUHKAvs_Q-cwFv5piZUZcjg/110/335-First-Ave-New-York-NY-Floor-Plan-3-Large.jpg"
+    ]
+  },
+  {
+    "loopnet_id": "39135206",
+    "loopnet_url": "https://www.loopnet.com/Listing/203-E-26th-St-New-York-NY/39135206/",
+    "address": "203 E 26th St",
+    "city": "New York",
+    "state": "NY",
+    "zip_code": "10010",
+    "property_type": "Retail",
+    "listing_type": "for_lease",
+    "square_footage": 500,
+    "price_per_sqft_yr": 138.00,
+    "year_built": null,
+    "scraped_at": "2026-03-28T00:00:00Z",
+    "photo_urls": [
+      "https://images1.loopnet.com/i2/8rspzkX7_xnKeRWdBj2zcpXZOpJKMpQqbc2cFmxGFdM/110/203-E-26th-St-New-York-NY-Primary-Photo-1-Large.jpg",
+      "https://images1.loopnet.com/i2/ZyXIxUw7NPnu4AjA-PEjtP8AjQ0IPK93jajvxf-6RAs/110/203-E-26th-St-New-York-NY-Plat-Map-2-Large.jpg",
+      "https://images1.loopnet.com/i2/rmbqXLdky9phMyZJ3f7YaJesWSK8YNYsChFbYt5Y_HU/110/203-E-26th-St-New-York-NY-Building-Photo-3-Large.jpg"
+    ]
+  },
+  {
+    "loopnet_id": "38181903",
+    "loopnet_url": "https://www.loopnet.com/Listing/350-W-44th-St-New-York-NY/38181903/",
+    "address": "350 W 44th St",
+    "city": "New York",
+    "state": "NY",
+    "zip_code": "10036",
+    "property_type": "Retail",
+    "listing_type": "for_lease",
+    "square_footage": 3580,
+    "price_per_sqft_yr": null,
+    "year_built": null,
+    "scraped_at": "2026-03-28T00:00:00Z",
+    "photo_urls": [
+      "https://images1.loopnet.com/i2/tgeABKz1FwZsZ7PvDxLtlD8dKdlc3Wx1tHssHnDFnzk/110/350-W-44th-St-New-York-NY-Building-Photo-1-Large.jpg"
+    ]
+  },
+  {
+    "loopnet_id": "39712163",
+    "loopnet_url": "https://www.loopnet.com/Listing/626-Manhattan-Ave-Brooklyn-NY/39712163/",
+    "address": "626 Manhattan Ave",
+    "city": "Brooklyn",
+    "state": "NY",
+    "zip_code": "11222",
+    "property_type": "Retail",
+    "listing_type": "for_lease",
+    "square_footage": 500,
+    "price_per_sqft_yr": null,
+    "year_built": null,
+    "scraped_at": "2026-03-28T00:00:00Z",
+    "photo_urls": [
+      "https://images1.loopnet.com/i2/5VWZMw5cYWVk5N26soiGz8xnLl0gto5es2rlcCw-zYI/110/626-Manhattan-Ave-Brooklyn-NY-Primary-Photo-1-Large.jpg",
+      "https://images1.loopnet.com/i2/V6g7peCwH9sysRtE_3pRqnFs1F_h6RiTIPB77pSJyz8/110/626-Manhattan-Ave-Brooklyn-NY-Building-Photo-2-Large.jpg",
+      "https://images1.loopnet.com/i2/9vB4Ocfsv23lZUj3_hN1jZszh3Tb-GVkqUJUM3t4yLo/110/626-Manhattan-Ave-Brooklyn-NY-Building-Photo-3-Large.jpg"
+    ]
+  },
+  {
+    "loopnet_id": "36014454",
+    "loopnet_url": "https://www.loopnet.com/Listing/356-E-8th-St-New-York-NY/36014454/",
+    "address": "356 E 8th St",
+    "city": "New York",
+    "state": "NY",
+    "zip_code": "10009",
+    "property_type": "Retail",
+    "listing_type": "for_lease",
+    "square_footage": 600,
+    "price_per_sqft_yr": null,
+    "year_built": null,
+    "scraped_at": "2026-03-28T00:00:00Z",
+    "photo_urls": [
+      "https://images1.loopnet.com/i2/Y-5hZIHyfETE-u6iRzmg2EvMBCjlptZ_-gQ157wGB1M/110/356-E-8th-St-New-York-NY-Primary-Photo-1-Large.png"
+    ]
+  },
+  {
+    "loopnet_id": "36859674",
+    "loopnet_url": "https://www.loopnet.com/Listing/2147-Second-Ave-New-York-NY/36859674/",
+    "address": "2147 Second Ave",
+    "city": "New York",
+    "state": "NY",
+    "zip_code": "10029",
+    "property_type": "Retail",
+    "listing_type": "for_lease",
+    "square_footage": 1950,
+    "price_per_sqft_yr": null,
+    "year_built": null,
+    "scraped_at": "2026-03-28T00:00:00Z",
+    "photo_urls": [
+      "https://images1.loopnet.com/i2/jFuSvMNwt1SbmrWY1aUPfiat81rawISgHXmpoCniWW4/110/2147-Second-Ave-New-York-NY-Primary-Photo-1-Large.jpg",
+      "https://images1.loopnet.com/i2/tfbY1oU6kJgOovWxN_1Y4thkZ2CUOc8YrPX5BkE9q3Y/110/2147-Second-Ave-New-York-NY-Building-Photo-2-Large.jpg",
+      "https://images1.loopnet.com/i2/dnGPuuZy1YJTu8HiujPOF_Bki-8JYNrLWPFWzO7FSgU/110/2147-Second-Ave-New-York-NY-Interior-Photo-3-Large.jpg"
+    ]
+  },
+  {
+    "loopnet_id": "6009930",
+    "loopnet_url": "https://www.loopnet.com/Listing/1436-Lexington-Ave-New-York-NY/6009930/",
+    "address": "1436 Lexington Ave",
+    "city": "New York",
+    "state": "NY",
+    "zip_code": "10128",
+    "property_type": "Retail",
+    "listing_type": "for_lease",
+    "square_footage": 370,
+    "price_per_sqft_yr": null,
+    "year_built": null,
+    "scraped_at": "2026-03-28T00:00:00Z",
+    "photo_urls": [
+      "https://images1.loopnet.com/i2/S15XJIxmfiJQPZr7Y-cxMtKEGuAs9kam7c_NLY1pDcs/110/1436-Lexington-Ave-New-York-NY-Building-Photo-1-Large.jpg",
+      "https://images1.loopnet.com/i2/9Ml1CwLwnG2BQg5QqiukJLb3Tucx7OtuMCITt3wLYss/110/1436-Lexington-Ave-New-York-NY-Building-Photo-2-Large.jpg"
+    ]
+  },
+  {
+    "loopnet_id": "38856812",
+    "loopnet_url": "https://www.loopnet.com/Listing/2363-2369-Adam-Clayton-Powell-Jr-Blvd-New-York-NY/38856812/",
+    "address": "2363-2369 Adam Clayton Powell Jr Blvd",
+    "city": "New York",
+    "state": "NY",
+    "zip_code": "10030",
+    "property_type": "Retail",
+    "listing_type": "for_lease",
+    "square_footage": 600,
+    "price_per_sqft_yr": null,
+    "year_built": null,
+    "scraped_at": "2026-03-28T00:00:00Z",
+    "photo_urls": [
+      "https://images1.loopnet.com/i2/DXnoTvdhZTvOJxjUMauGNy2RfOXcUK3My-dYkPHfFH8/110/2363-2369-Adam-Clayton-Powell-Jr-Blvd-New-York-NY-Primary-Photo-1-Large.jpg"
+    ]
+  },
+  {
+    "loopnet_id": "30850324",
+    "loopnet_url": "https://www.loopnet.com/Listing/322-348-W-50th-St-New-York-NY/30850324/",
+    "address": "322-348 W 50th St",
+    "city": "New York",
+    "state": "NY",
+    "zip_code": "10019",
+    "property_type": "Retail",
+    "listing_type": "for_lease",
+    "square_footage": 905,
+    "price_per_sqft_yr": null,
+    "year_built": null,
+    "scraped_at": "2026-03-28T00:00:00Z",
+    "photo_urls": [
+      "https://images1.loopnet.com/i2/41ugptA0m0sI1bzIcmZxfsYK-i0J3noDnM7ma72OujE/110/322-348-W-50th-St-New-York-NY-Primary-Photo-1-Large.jpg",
+      "https://images1.loopnet.com/i2/PABtlHm_TcYBhsd5SkShvPRs6W996NGd7RAykGtuqhI/110/322-348-W-50th-St-New-York-NY-Building-Photo-2-Large.jpg",
+      "https://images1.loopnet.com/i2/0-pW_xZcfE4zetWjr-UtfPyhV-etBAHkCqf7e_kfvho/110/322-348-W-50th-St-New-York-NY-Plat-Map-3-Large.jpg"
+    ]
+  },
+  {
+    "loopnet_id": "39029603",
+    "loopnet_url": "https://www.loopnet.com/Listing/26-E-23rd-St-New-York-NY/39029603/",
+    "address": "26 E 23rd St",
+    "city": "New York",
+    "state": "NY",
+    "zip_code": "10010",
+    "property_type": "Retail",
+    "listing_type": "for_lease",
+    "square_footage": 2166,
+    "price_per_sqft_yr": null,
+    "year_built": null,
+    "scraped_at": "2026-03-28T00:00:00Z",
+    "photo_urls": [
+      "https://images1.loopnet.com/i2/ZiKr35Jny2WpMXZ2bV_DK56pAyRcrkt9Z1hZ4HPtba0/110/26-E-23rd-St-New-York-NY-Building-Photo-1-Large.png"
+    ]
+  },
+  {
+    "loopnet_id": "39645978",
+    "loopnet_url": "https://www.loopnet.com/Listing/633-Second-Ave-New-York-NY/39645978/",
+    "address": "633 Second Ave",
+    "city": "New York",
+    "state": "NY",
+    "zip_code": "10016",
+    "property_type": "Retail",
+    "listing_type": "for_lease",
+    "square_footage": 1400,
+    "price_per_sqft_yr": null,
+    "year_built": null,
+    "scraped_at": "2026-03-28T00:00:00Z",
+    "photo_urls": [
+      "https://images1.loopnet.com/i2/_mny6SJehDXunq1L9LCnYeLwdSYkzQ5-mkEV4JHyGP0/110/633-Second-Ave-New-York-NY-Building-Photo-1-Large.jpg"
+    ]
+  },
+  {
+    "loopnet_id": "34213428",
+    "loopnet_url": "https://www.loopnet.com/Listing/34-Union-Sq-E-New-York-NY/34213428/",
+    "address": "34 Union Sq E",
+    "city": "New York",
+    "state": "NY",
+    "zip_code": "10003",
+    "property_type": "Retail",
+    "listing_type": "for_lease",
+    "square_footage": 2530,
+    "price_per_sqft_yr": null,
+    "year_built": null,
+    "scraped_at": "2026-03-28T00:00:00Z",
+    "photo_urls": [
+      "https://images1.loopnet.com/i2/ccMXA4Q_FxXzAxu_Sw1ogYP0yh-9KZ4fEcrVzHAbJIQ/110/34-Union-Sq-E-New-York-NY-Building-Photo-1-Large.jpg",
+      "https://images1.loopnet.com/i2/znDBVQW7E3r0_QBFOTuiyn8JhdgGTtX1OyY5K-uYvOA/110/34-Union-Sq-E-New-York-NY-Floor-Plan-2-Large.jpg",
+      "https://images1.loopnet.com/i2/c6uQRxiWGQmjPLu_dcq_tefDiohwtwEVog7s7mhcwng/110/34-Union-Sq-E-New-York-NY-Interior-Photo-3-Large.jpg"
+    ]
+  },
+  {
+    "loopnet_id": "39748082",
+    "loopnet_url": "https://www.loopnet.com/Listing/90-92-University-Pl-New-York-NY/39748082/",
+    "address": "90-92 University Pl",
+    "city": "New York",
+    "state": "NY",
+    "zip_code": "10003",
+    "property_type": "Retail",
+    "listing_type": "for_lease",
+    "square_footage": 991,
+    "price_per_sqft_yr": 302.72,
+    "year_built": null,
+    "scraped_at": "2026-03-28T00:00:00Z",
+    "photo_urls": [
+      "https://images1.loopnet.com/i2/9p3j5hTa9kbqRB3arImw5PkRugHYdl4-tHCNN2r8OAk/110/90-92-University-Pl-New-York-NY-Primary-Photo-1-Large.jpg",
+      "https://images1.loopnet.com/i2/j4AYB5ayJpkFfnshmxLSz8dKwaRxd_SClkVujDhmH4w/110/90-92-University-Pl-New-York-NY-Building-Photo-2-Large.jpg"
+    ]
+  },
+  {
+    "loopnet_id": "38834835",
+    "loopnet_url": "https://www.loopnet.com/Listing/544-6th-Ave-New-York-NY/38834835/",
+    "address": "544 6th Ave",
+    "city": "New York",
+    "state": "NY",
+    "zip_code": "10011",
+    "property_type": "Retail",
+    "listing_type": "for_lease",
+    "square_footage": 1700,
+    "price_per_sqft_yr": null,
+    "year_built": null,
+    "scraped_at": "2026-03-28T00:00:00Z",
+    "photo_urls": [
+      "https://images1.loopnet.com/i2/2ZRolCBZZifGmG4DiXoE2JPPi6ihtRivjFpwWhnu3AM/110/544-6th-Ave-New-York-NY-Primary-Photo-1-Large.jpg",
+      "https://images1.loopnet.com/i2/hpd_qodNXYnHVsQUJBU7eKUrvZf3gQ6OCe7PWuJshN0/110/544-6th-Ave-New-York-NY-Building-Photo-2-Large.jpg",
+      "https://images1.loopnet.com/i2/oqNBHuQvImR-udCSMDKhJCLX2Gf2sQJfnR5bEubUgB8/110/544-6th-Ave-New-York-NY-Building-Photo-3-Large.jpg"
+    ]
+  },
+  {
+    "loopnet_id": "39706180",
+    "loopnet_url": "https://www.loopnet.com/Listing/12-23-Jackson-Ave-Long-Island-City-NY/39706180/",
+    "address": "12-23 Jackson Ave",
+    "city": "Long Island City",
+    "state": "NY",
+    "zip_code": "11101",
+    "property_type": "Retail",
+    "listing_type": "for_lease",
+    "square_footage": 4200,
+    "price_per_sqft_yr": null,
+    "year_built": null,
+    "scraped_at": "2026-03-28T00:00:00Z",
+    "photo_urls": [
+      "https://images1.loopnet.com/i2/HFetA4imxBd3kESfsNNlpT1vlYAPFK4shiIwkDAoMYg/110/12-23-Jackson-Ave-Long-Island-City-NY-Primary-Photo-1-Large.jpg",
+      "https://images1.loopnet.com/i2/kFPsNCPk-OnELJtHl61seG9sozVWi3oAmWHCmYUh0lI/110/12-23-Jackson-Ave-Long-Island-City-NY-Building-Photo-2-Large.jpg",
+      "https://images1.loopnet.com/i2/SLRvi2IhD9SeyLU2tPtINZ_J1NnX1aC_K7i5b5pac34/110/12-23-Jackson-Ave-Long-Island-City-NY-Building-Photo-3-Large.png"
+    ]
+  },
+  {
+    "loopnet_id": "37521385",
+    "loopnet_url": "https://www.loopnet.com/Listing/155-W-70th-St-New-York-NY/37521385/",
+    "address": "155 W 70th St",
+    "city": "New York",
+    "state": "NY",
+    "zip_code": "10023",
+    "property_type": "Retail",
+    "listing_type": "for_lease",
+    "square_footage": 405,
+    "price_per_sqft_yr": null,
+    "year_built": null,
+    "scraped_at": "2026-03-28T00:00:00Z",
+    "photo_urls": [
+      "https://images1.loopnet.com/i2/IsNBBC-9hSclxgLqeMf9gRn0UPCGsNlJUnW_0tzuEp4/110/155-W-70th-St-New-York-NY-Building-Photo-1-Large.jpg",
+      "https://images1.loopnet.com/i2/XijtYsgQP_jyNq4Uw2ooDkUyBw-EGAupuixMuFveJWk/110/155-W-70th-St-New-York-NY-Building-Photo-2-Large.jpg"
+    ]
+  },
+  {
+    "loopnet_id": "21971809",
+    "loopnet_url": "https://www.loopnet.com/Listing/1066-1074-First-Ave-New-York-NY/21971809/",
+    "address": "1066-1074 First Ave",
+    "city": "New York",
+    "state": "NY",
+    "zip_code": "10022",
+    "property_type": "Retail",
+    "listing_type": "for_lease",
+    "square_footage": 1962,
+    "price_per_sqft_yr": null,
+    "year_built": null,
+    "scraped_at": "2026-03-28T00:00:00Z",
+    "photo_urls": [
+      "https://images1.loopnet.com/i2/24be8jAC6AqgOC0gz4TqUtoGuk4w3USNBhPyM7tdPVk/110/1066-1074-First-Ave-New-York-NY-Building-Photo-1-Large.jpg",
+      "https://images1.loopnet.com/i2/EGOCl3FVuNbaT_jqJp0qQW96aTk32wq2NNCOQ0YCe98/110/1066-1074-First-Ave-New-York-NY-Interior-Photo-2-Large.jpg"
+    ]
+  },
+  {
+    "loopnet_id": "39250796",
+    "loopnet_url": "https://www.loopnet.com/Listing/41-26-27th-St-Long-Island-City-NY/39250796/",
+    "address": "41-26 27th St",
+    "city": "Long Island City",
+    "state": "NY",
+    "zip_code": "11101",
+    "property_type": "Retail",
+    "listing_type": "for_lease",
+    "square_footage": 1043,
+    "price_per_sqft_yr": null,
+    "year_built": null,
+    "scraped_at": "2026-03-28T00:00:00Z",
+    "photo_urls": [
+      "https://images1.loopnet.com/i2/SyjfydcbMNLaaT6cMKEmoF7x1QfjgiPjX45cYLd9LmQ/110/41-26-27th-St-Long-Island-City-NY-Primary-Photo-1-Large.jpg",
+      "https://images1.loopnet.com/i2/85CJQeMQ800A9ggZAEKVFv1qcZDU00CL8s1HePRw878/110/41-26-27th-St-Long-Island-City-NY-Building-Photo-2-Large.jpg",
+      "https://images1.loopnet.com/i2/Tm2LAgVHFZvAI0rbfDnSOx-9l9hoYp5qLUvkWsTuQHo/110/41-26-27th-St-Long-Island-City-NY-Building-Photo-3-Large.jpg"
+    ]
+  }
+]

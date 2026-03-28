@@ -1,9 +1,36 @@
+# Dependencies
 node_modules
+
+# Secrets / local env
 .env
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
+
+# Tooling / caches
 .temp
 __pycache__
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+.eggs/
+dist/
+htmlcov/
+.coverage
+coverage.xml
+
+# Virtual environments (do not rely only on venv-internal .gitignore)
+.venv/
+venv/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE / editor (local)
 .cursor
+.idea

@@ -1,10 +1,15 @@
 import requests
 import time
 import math
+import os
+from dotenv import load_dotenv
+
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+load_dotenv(os.path.join(PROJECT_ROOT, '.env'))
 
 # ── Configuration ─────────────────────────────────────────────────────────────
-GOOGLE_API_KEY = "x"  # Replace with your key
-SERPAPI_KEY = "x"  # Replace with your key
+GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+SERPAPI_KEY = os.getenv("SERPAPI_KEY")
 
 CATEGORIES = [
     "acai_shop", "american_restaurant", "asian_fusion_restaurant", "asian_restaurant",
@@ -184,7 +189,7 @@ def calculate_hybrid_score(category_name, current_place_data, all_google_data, y
 
 
 def enrich_and_rank(ranked, google_data, total_establishments, top_n=15):
-    print(f"\n🔍 Deep-diving top {top_n} via Yelp (Market Size: {total_establishments})...")
+    #print(f"\n🔍 Deep-diving top {top_n} via Yelp (Market Size: {total_establishments})...")
     final = []
     for cat, initial_score, d in ranked[:top_n]:
         # Yelp Scrape
@@ -199,11 +204,11 @@ def enrich_and_rank(ranked, google_data, total_establishments, top_n=15):
         h_score, m_share = calculate_hybrid_score(cat, d, google_data, analysis, total_establishments)
 
         final.append({"cat": cat, "score": h_score, "share": m_share, "g": d, "y": analysis})
-        print(f"  {'✓' if y_id else '✗'} {cat:<25} | Score: {h_score:,.1f}")
+        #print(f"  {'✓' if y_id else '✗'} {cat:<25} | Score: {h_score:,.1f}")
 
     return sorted(final, key=lambda x: x["score"], reverse=True)
 
-
+"""
 # ── Update your Main block call ──────────────────────────────────────────────
 if __name__ == "__main__":
     LAT, LNG = 40.7258,-73.9932
@@ -240,3 +245,4 @@ if __name__ == "__main__":
 
         print(
             f"{i:<5} {res['cat']:<22} {res['score']:<8.1f} {res['share']:<8.1%} {res['g']['top_rating']:<8} {res['y']['yelp_rating'] if res['y'] else 'N/A':<8} {', '.join(pains) if pains else '-'}")
+            """

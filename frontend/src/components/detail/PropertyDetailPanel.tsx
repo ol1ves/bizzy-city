@@ -2,7 +2,7 @@
 
 import type { Property } from '@/lib/types';
 import SlidePanel from '@/components/ui/SlidePanel';
-import StreetViewGallery from './StreetViewGallery';
+import PropertyGallery from './PropertyGallery';
 import PropertyInfo from './PropertyInfo';
 import RecommendationsSection from './RecommendationsSection';
 
@@ -19,8 +19,8 @@ export default function PropertyDetailPanel({
     <SlidePanel open={property !== null} onClose={onClose}>
       {property && (
         <div className="pb-8">
-          {/* Street View */}
-          <StreetViewGallery lat={property.latitude} lng={property.longitude} />
+          {/* Gallery */}
+          <PropertyGallery propertyId={property.id} lat={property.latitude} lng={property.longitude} />
 
           {/* Header */}
           <div className="px-5 pt-4 pb-3 border-b border-gray-100">
@@ -28,8 +28,8 @@ export default function PropertyDetailPanel({
               {property.address}
             </h2>
             <div className="mt-1 flex flex-wrap items-center gap-1.5 text-sm text-gray-500">
-              {property.neighborhood && <span>{property.neighborhood}</span>}
-              {property.neighborhood && property.zip_code && <span>·</span>}
+              <span>{property.city}, {property.state_code}</span>
+              {property.zip_code && <span>·</span>}
               {property.zip_code && <span>{property.zip_code}</span>}
             </div>
             {property.crexi_url && (

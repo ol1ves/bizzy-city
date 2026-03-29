@@ -18,3 +18,8 @@ export function getSupabase(): SupabaseClient {
   _client = createClient(url, key);
   return _client;
 }
+
+export function getImageUrl(storagePath: string): string {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  return `${url}/storage/v1/object/public/property-photos/${storagePath}`;
+}

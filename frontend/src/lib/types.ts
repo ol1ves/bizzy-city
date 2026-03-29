@@ -4,22 +4,32 @@ export interface Property {
   crexi_url: string | null;
   address: string;
   city: string;
-  neighborhood: string | null;
+  state_code: string;
   zip_code: string | null;
   latitude: number;
   longitude: number;
   square_footage: number | null;
-  asking_rent: number | null;
   asking_rent_per_sqft: number | null;
-  year_built: number | null;
-  listing_status: string;
-  broker_name: string | null;
-  broker_company: string | null;
+  description: string | null;
   created_at: string;
   updated_at: string;
+  restaurant_analysis: string | null;
+  restaurant_analyzed_at: string | null;
+  retail_analysis: string | null;
+  retail_analyzed_at: string | null;
+  foot_traffic_analysis: string | null;
+  foot_traffic_analyzed_at: string | null;
   top_rec_business: string | null;
   top_rec_score: number | null;
   top_rec_reasoning: string | null;
+}
+
+export interface PropertyImage {
+  id: string;
+  property_id: string;
+  storage_path: string;
+  display_order: number;
+  uploaded_at: string;
 }
 
 export interface Recommendation {

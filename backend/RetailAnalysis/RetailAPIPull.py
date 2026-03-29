@@ -1,11 +1,15 @@
 import requests
 import time
 import math
+import os
+from dotenv import load_dotenv
+
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+load_dotenv(os.path.join(PROJECT_ROOT, '.env'))
 
 # ── Configuration ─────────────────────────────────────────────────────────────
-GOOGLE_API_KEY = "x"  # Replace with your key
+GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 
-# Combined and cleaned list based on your requirements
 CATEGORIES = [
     "chiropractor", "dental_clinic", "dentist", "doctor", "drugstore", "hospital",
     "massage", "physiotherapist", "sauna", "skin_care_clinic", "spa", "tanning_studio",
@@ -38,13 +42,14 @@ def search_nearby_retail(lat, lng, category, radius=1000):
     try:
         resp = requests.post(url, json=body, headers=headers, timeout=TIMEOUT)
         return resp.json().get("places", []) if resp.status_code == 200 else []
-    except:
+    except Exception:
         return []
 
 
 def analyze_google_sentiment(place):
     reviews = place.get("reviews", [])
-    if not reviews: return 0.0
+    if not reviews:
+        return 0.0
     hits = sum(1 for r in reviews if any(k in r.get("text", {}).get("text", "").lower() for k in PAIN_KEYWORDS))
     return round(hits / len(reviews), 2)
 
@@ -56,37 +61,30 @@ def calculate_hub_aware_opportunity(data):
     total_area_count = sum(len(items) for items in data.values())
 
     for cat, items in data.items():
-        if not items: continue
+        if not items:
+            continue
 
         count = len(items)
         rated = [p for p in items if p.get("rating")]
-        if not rated: continue
+        if not rated:
+            continue
 
-        # 1. Gather Metrics
         total_reviews = sum(p.get("userRatingCount", 0) for p in rated)
         avg_rating = sum(p['rating'] for p in rated) / len(rated)
 
-        # ── SCALING FIX: Use Square Root of Rev/Loc ──
-        # This prevents clothing_store (1159 revs) from being 10x higher than niche shops
+        # sqrt scaling prevents high-review categories from dominating
         reviews_per_loc = math.sqrt(total_reviews / count)
 
-        # 2. Hub Multiplier
         market_share = count / max(total_area_count, 1)
         hub_bonus = 1 + (market_share * 3)
 
-        # 3. Quality Gap
         quality_gap = max(0.5, 4.8 - avg_rating)
 
-        # 4. Friction (Analyze the 'best' store)
         top_place = sorted(rated, key=lambda x: x['rating'], reverse=True)[0]
         friction = analyze_google_sentiment(top_place)
 
-        # ── PAIN WEIGHTING: Exponential ──
-        # (1 + friction)^3 makes HIGH pain significantly more valuable than LOW pain
         pain_multiplier = math.pow(1 + friction, 3)
 
-        # ── SATURATION PENALTY ──
-        # If count is 20, we reduce the score because the physical space is full
         saturation_penalty = 0.5 if count >= 20 else 1.0
 
         # ── THE NEW FORMULA ──
@@ -104,31 +102,3 @@ def calculate_hub_aware_opportunity(data):
         })
 
     return sorted(rankings, key=lambda x: x["score"], reverse=True)
-
-
-# ── Updated Print Loop ───────────────────────────────────────────────────────
-if __name__ == "__main__":
-    LAT, LNG = 40.7150, -73.9967
-
-    raw_market_data = {}
-    print(f"🏙️  Scanning City Hub at {LAT}, {LNG}...")
-
-    for category in CATEGORIES:
-        results = search_nearby_retail(LAT, LNG, category)
-        raw_market_data[category] = results
-        print(f"  ✓ {category:<22} | Found: {len(results)}")
-        time.sleep(0.05)
-
-    final_rankings = calculate_hub_aware_opportunity(raw_market_data)
-
-    if not final_rankings:
-        print("\n❌ No rankings could be generated. Ensure your Place results contain 'rating' or 'userRatingCount'.")
-    else:
-        print("\n" + "═" * 105)
-        print(f"{'RANK':<5} {'CATEGORY':<22} {'SCORE':<10} {'REV/LOC':<10} {'ESTAB.':<8} {'SHARE':<10} {'PAIN'}")
-        print("─" * 105)
-
-        for i, res in enumerate(final_rankings[:25], 1):
-            pain_lvl = "HIGH" if res['friction'] > 0.2 else "MED" if res['friction'] > 0.05 else "LOW"
-            print(
-                f"{i:<5} {res['category']:<22} {res['score']:<10.1f} {res['rev_per_loc']:<10} {res['count']:<8} {res['share']:<10.1%} {pain_lvl}")

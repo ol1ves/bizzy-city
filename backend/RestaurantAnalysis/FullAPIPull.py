@@ -48,7 +48,7 @@ def search_category(lat, lng, category, radius=200):
     try:
         resp = requests.post(url, json=body, headers=headers, timeout=TIMEOUT)
         return resp.json().get("places", []) if resp.status_code == 200 else []
-    except:
+    except Exception:
         return []
 
 
@@ -113,7 +113,7 @@ def serpapi_get(params):
     try:
         resp = requests.get("https://serpapi.com/search", params=params, timeout=TIMEOUT)
         return resp.json() if resp.status_code == 200 else {}
-    except:
+    except Exception:
         return {}
 
 
@@ -189,7 +189,7 @@ def calculate_hybrid_score(category_name, current_place_data, all_google_data, y
 
 
 def enrich_and_rank(ranked, google_data, total_establishments, top_n=15):
-    #print(f"\n🔍 Deep-diving top {top_n} via Yelp (Market Size: {total_establishments})...")
+    print(f"\n🔍 Deep-diving top {top_n} via Yelp (Market Size: {total_establishments})...")
     final = []
     for cat, initial_score, d in ranked[:top_n]:
         # Yelp Scrape
@@ -200,11 +200,10 @@ def enrich_and_rank(ranked, google_data, total_establishments, top_n=15):
             analysis = analyze_reviews(revs)
             analysis["yelp_rating"] = biz.get("rating", "N/A")
 
-        # Pass 'cat' and 'google_data' into the fixed function
         h_score, m_share = calculate_hybrid_score(cat, d, google_data, analysis, total_establishments)
 
         final.append({"cat": cat, "score": h_score, "share": m_share, "g": d, "y": analysis})
-        #print(f"  {'✓' if y_id else '✗'} {cat:<25} | Score: {h_score:,.1f}")
+        print(f"  {'✓' if y_id else '✗'} {cat:<25} | Score: {h_score:,.1f}")
 
     return sorted(final, key=lambda x: x["score"], reverse=True)
 

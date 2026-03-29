@@ -17,13 +17,9 @@ export default function PropertyInfoWindow({
         {property.address}
       </h3>
 
-      {property.neighborhood && (
-        <div className="mt-1.5">
-          <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600">
-            {property.neighborhood}
-          </span>
-        </div>
-      )}
+      <p className="mt-1 text-xs text-gray-500">
+        {property.city}, {property.state_code}
+      </p>
 
       {property.square_footage && (
         <p className="mt-1.5 text-xs text-gray-500">

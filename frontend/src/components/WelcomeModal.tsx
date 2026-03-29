@@ -32,7 +32,7 @@ export default function WelcomeModal({ open, onClose }: WelcomeModalProps) {
       
       {/* Modal */}
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-        <div className="relative w-full max-w-md rounded-2xl bg-white shadow-2xl border border-neutral-200">
+        <div className="relative w-full max-w-lg rounded-2xl bg-white shadow-2xl border border-neutral-200">
           {/* Close button */}
           <button
             onClick={onClose}
@@ -61,7 +61,7 @@ export default function WelcomeModal({ open, onClose }: WelcomeModalProps) {
             </h2>
             
             <p className="text-neutral-600 leading-relaxed mb-6">
-              Discover the best business opportunities for any commercial property. Our AI analyzes neighborhood demand, competition gaps, and foot traffic to recommend the most promising business types for each location.
+              Every neighborhood has unmet demand. BizzyCity finds it. We analyze foot traffic, local competition, and community gaps to recommend which businesses will actually survive — and thrive — at any given address.
             </p>
 
             <div className="space-y-3 mb-6">
@@ -72,8 +72,8 @@ export default function WelcomeModal({ open, onClose }: WelcomeModalProps) {
                   </svg>
                 </div>
                 <div>
-                  <h3 className="font-semibold text-neutral-900">Browse Properties</h3>
-                  <p className="text-sm text-neutral-600">Explore commercial properties on the interactive map</p>
+                  <h3 className="font-semibold text-neutral-900">Explore the Map</h3>
+                  <p className="text-sm text-neutral-600">Browse available commercial spaces across NYC. Each pin is a real listing.</p>
                 </div>
               </div>
 
@@ -84,8 +84,8 @@ export default function WelcomeModal({ open, onClose }: WelcomeModalProps) {
                   </svg>
                 </div>
                 <div>
-                  <h3 className="font-semibold text-neutral-900">View Details</h3>
-                  <p className="text-sm text-neutral-600">Click any property to see detailed information and photos</p>
+                  <h3 className="font-semibold text-neutral-900">Spot the Gaps</h3>
+                  <p className="text-sm text-neutral-600">Click any property to see what&apos;s missing in the neighborhood — the business types locals need but don&apos;t have yet.</p>
                 </div>
               </div>
 
@@ -96,8 +96,8 @@ export default function WelcomeModal({ open, onClose }: WelcomeModalProps) {
                   </svg>
                 </div>
                 <div>
-                  <h3 className="font-semibold text-neutral-900">Get Recommendations</h3>
-                  <p className="text-sm text-neutral-600">See AI-generated business recommendations based on market analysis</p>
+                  <h3 className="font-semibold text-neutral-900">Launch With Confidence</h3>
+                  <p className="text-sm text-neutral-600">Our AI scores every recommendation on walk-by conversion, 5-year survival probability, and revenue potential — so you&apos;re not guessing.</p>
                 </div>
               </div>
             </div>

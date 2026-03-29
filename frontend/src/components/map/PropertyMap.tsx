@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { Map, AdvancedMarker, InfoWindow, useMap } from '@vis.gl/react-google-maps';
 import type { Property } from '@/lib/types';
 import { MAP_DEFAULT_CENTER, MAP_DEFAULT_ZOOM } from '@/constants';
@@ -10,6 +10,7 @@ import PropertyInfoWindow from './PropertyInfoWindow';
 interface PropertyMapProps {
   properties: Property[];
   onSelectProperty: (property: Property) => void;
+  onStreetViewChange?: (isActive: boolean) => void;
 }
 
 function MapMarkers({
@@ -76,7 +77,26 @@ function MapMarkers({
   );
 }
 
-export default function PropertyMap({ properties, onSelectProperty }: PropertyMapProps) {
+function StreetViewWatcher({ onStreetViewChange }: { onStreetViewChange?: (isActive: boolean) => void }) {
+  const map = useMap();
+
+  useEffect(() => {
+    if (!map || !onStreetViewChange) return;
+
+    const streetView = map.getStreetView();
+    const listener = streetView.addListener('visible_changed', () => {
+      onStreetViewChange(streetView.getVisible());
+    });
+
+    return () => {
+      google.maps.event.removeListener(listener);
+    };
+  }, [map, onStreetViewChange]);
+
+  return null;
+}
+
+export default function PropertyMap({ properties, onSelectProperty, onStreetViewChange }: PropertyMapProps) {
   return (
     <Map
       defaultCenter={MAP_DEFAULT_CENTER}
@@ -92,6 +112,7 @@ export default function PropertyMap({ properties, onSelectProperty }: PropertyMa
       className="h-full w-full"
     >
       <MapMarkers properties={properties} onSelectProperty={onSelectProperty} />
+      <StreetViewWatcher onStreetViewChange={onStreetViewChange} />
     </Map>
   );
 }

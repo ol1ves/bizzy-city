@@ -13,6 +13,7 @@ export default function Home() {
   const { properties, loading, error } = useProperties();
   const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
   const [showWelcome, setShowWelcome] = useState(false);
+  const [isStreetView, setIsStreetView] = useState(false);
 
   // Initialize welcome modal on first visit
   useEffect(() => {
@@ -55,8 +56,8 @@ export default function Home() {
 
   return (
     <div className="relative h-screen w-screen">
-      {/* Header */}
-      <Header />
+      {/* Header - hidden in Street View mode */}
+      {!isStreetView && <Header />}
 
       {/* Loading overlay */}
       {loading && (
@@ -72,6 +73,7 @@ export default function Home() {
       <PropertyMap
         properties={properties}
         onSelectProperty={handleSelectProperty}
+        onStreetViewChange={setIsStreetView}
       />
 
       {/* Detail Panel */}

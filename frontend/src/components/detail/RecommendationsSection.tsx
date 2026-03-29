@@ -86,6 +86,33 @@ function LoadingSkeleton() {
   );
 }
 
+function Spinner({ className = 'h-4 w-4' }: { className?: string }) {
+  return (
+    <span
+      className={`${className} inline-block animate-spin rounded-full border-2 border-current border-r-transparent`}
+      aria-hidden="true"
+    />
+  );
+}
+
+function StatusCard({
+  title,
+  description,
+}: {
+  title: string;
+  description: string;
+}) {
+  return (
+    <div className="mb-3 rounded-lg border border-brand-100 bg-brand-50 px-3 py-2 text-brand-800">
+      <div className="flex items-center gap-2 text-sm font-medium">
+        <Spinner />
+        <span>{title}</span>
+      </div>
+      <p className="mt-1 text-xs text-brand-700">{description}</p>
+    </div>
+  );
+}
+
 function Placeholder({ onGenerate, generating }: { onGenerate: () => void; generating: boolean }) {
   return (
     <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50/50 p-6 text-center">
@@ -96,9 +123,16 @@ function Placeholder({ onGenerate, generating }: { onGenerate: () => void; gener
       <button
         onClick={onGenerate}
         disabled={generating}
-        className="mt-4 w-full rounded-lg bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50"
       >
-        {generating ? 'Generating...' : 'Generate Recommendations'}
+        {generating ? (
+          <>
+            <Spinner className="h-3.5 w-3.5" />
+            Running recommendation engine...
+          </>
+        ) : (
+          'Run Recommendations'
+        )}
       </button>
       <p className="mt-3 text-xs text-gray-400 leading-relaxed">
         Our AI analyzes neighborhood demand, competition gaps, and foot traffic
@@ -108,11 +142,20 @@ function Placeholder({ onGenerate, generating }: { onGenerate: () => void; gener
   );
 }
 
-function PartialData({ missingAnalyses }: { missingAnalyses: string[] }) {
+function PartialData({
+  missingAnalyses,
+  onRefresh,
+  refreshing,
+}: {
+  missingAnalyses: string[];
+  onRefresh: () => void;
+  refreshing: boolean;
+}) {
   const labels: Record<string, string> = {
     restaurant_analysis: 'Restaurant analysis',
     retail_analysis: 'Retail analysis',
     foot_traffic_analysis: 'Foot traffic analysis',
+    ml_predictions: 'ML predictions',
   };
 
   return (
@@ -131,12 +174,35 @@ function PartialData({ missingAnalyses }: { missingAnalyses: string[] }) {
       <p className="mt-3 text-xs text-gray-400 leading-relaxed">
         Recommendations will be available once all analyses are complete.
       </p>
+      <button
+        onClick={onRefresh}
+        disabled={refreshing}
+        className="mt-4 inline-flex items-center justify-center gap-2 rounded-lg border border-amber-300 bg-white px-3 py-2 text-xs font-semibold text-amber-800 transition-colors hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-60"
+      >
+        {refreshing ? (
+          <>
+            <Spinner className="h-3 w-3" />
+            Checking...
+          </>
+        ) : (
+          'Refresh Status'
+        )}
+      </button>
     </div>
   );
 }
 
 export default function RecommendationsSection({ propertyId }: RecommendationsSectionProps) {
-  const { recommendations, loading, error, partial, missingAnalyses, refetch } =
+  const {
+    recommendations,
+    loadingInitial,
+    isGenerating,
+    error,
+    partial,
+    missingAnalyses,
+    loadRecommendations,
+    generateRecommendations,
+  } =
     useRecommendations(propertyId);
 
   return (
@@ -145,29 +211,48 @@ export default function RecommendationsSection({ propertyId }: RecommendationsSe
         AI Recommendations
       </h3>
 
-      {loading && <LoadingSkeleton />}
+      {loadingInitial && recommendations.length === 0 && (
+        <>
+          <StatusCard
+            title="Checking saved recommendations..."
+            description="Loading previously generated recommendations for this property."
+          />
+          <LoadingSkeleton />
+        </>
+      )}
+
+      {isGenerating && (
+        <StatusCard
+          title="Running recommendation engine..."
+          description="This can take a few moments while we evaluate demand and foot traffic signals."
+        />
+      )}
 
       {error && (
         <p className="text-sm text-red-500">
           Failed to load recommendations.{' '}
           <button
             className="underline hover:text-red-700"
-            onClick={refetch}
+            onClick={loadRecommendations}
           >
             Retry
           </button>
         </p>
       )}
 
-      {!loading && !error && partial && (
-        <PartialData missingAnalyses={missingAnalyses} />
+      {!loadingInitial && !error && partial && (
+        <PartialData
+          missingAnalyses={missingAnalyses}
+          onRefresh={loadRecommendations}
+          refreshing={loadingInitial}
+        />
       )}
 
-      {!loading && !error && !partial && recommendations.length === 0 && (
-        <Placeholder onGenerate={refetch} generating={loading} />
+      {!loadingInitial && !error && !partial && recommendations.length === 0 && (
+        <Placeholder onGenerate={generateRecommendations} generating={isGenerating} />
       )}
 
-      {!loading && !error && recommendations.length > 0 && (
+      {!loadingInitial && !error && recommendations.length > 0 && (
         <div className="space-y-3">
           {recommendations.map((rec) => (
             <RecommendationCard key={rec.id ?? `${rec.rank}-${rec.business_type}`} rec={rec} />

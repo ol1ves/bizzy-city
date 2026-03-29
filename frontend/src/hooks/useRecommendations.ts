@@ -14,36 +14,30 @@ const API_URL = (
 
 export function useRecommendations(propertyId: string | null) {
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loadingInitial, setLoadingInitial] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [partial, setPartial] = useState(false);
   const [missingAnalyses, setMissingAnalyses] = useState<string[]>([]);
-  const [fetchKey, setFetchKey] = useState(0);
 
-  const refetch = useCallback(() => setFetchKey((k) => k + 1), []);
+  const fetchRecommendations = useCallback(
+    async (generate: boolean) => {
+      if (!propertyId) return;
 
-  useEffect(() => {
-    if (!propertyId) {
-      setRecommendations([]);
-      setPartial(false);
-      setMissingAnalyses([]);
-      return;
-    }
+      if (generate) {
+        setIsGenerating(true);
+      } else {
+        setLoadingInitial(true);
+      }
 
-    let cancelled = false;
-
-    async function fetchRecommendations() {
-      setLoading(true);
       setError(null);
       setPartial(false);
       setMissingAnalyses([]);
 
       try {
         const res = await fetch(
-          `${API_URL}/api/recommendations/${propertyId}`,
+          `${API_URL}/api/recommendations/${propertyId}?generate=${generate ? 'true' : 'false'}`,
         );
-
-        if (cancelled) return;
 
         if (res.status === 202) {
           const body = await res.json();
@@ -58,17 +52,48 @@ export function useRecommendations(propertyId: string | null) {
           setRecommendations(body.recommendations ?? []);
         }
       } catch (err) {
-        if (!cancelled) {
-          setError(err instanceof Error ? err.message : 'Network error');
-        }
+        setError(err instanceof Error ? err.message : 'Network error');
       } finally {
-        if (!cancelled) setLoading(false);
+        if (generate) {
+          setIsGenerating(false);
+        } else {
+          setLoadingInitial(false);
+        }
       }
+    },
+    [propertyId],
+  );
+
+  const loadRecommendations = useCallback(async () => {
+    await fetchRecommendations(false);
+  }, [fetchRecommendations]);
+
+  const generateRecommendations = useCallback(async () => {
+    await fetchRecommendations(true);
+  }, [fetchRecommendations]);
+
+  useEffect(() => {
+    if (!propertyId) {
+      setRecommendations([]);
+      setLoadingInitial(false);
+      setIsGenerating(false);
+      setError(null);
+      setPartial(false);
+      setMissingAnalyses([]);
+      return;
     }
 
-    fetchRecommendations();
-    return () => { cancelled = true; };
-  }, [propertyId, fetchKey]);
+    void loadRecommendations();
+  }, [propertyId, loadRecommendations]);
 
-  return { recommendations, loading, error, partial, missingAnalyses, refetch };
+  return {
+    recommendations,
+    loadingInitial,
+    isGenerating,
+    error,
+    partial,
+    missingAnalyses,
+    loadRecommendations,
+    generateRecommendations,
+  };
 }

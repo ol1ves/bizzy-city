@@ -13,7 +13,7 @@ _backend_root = Path(__file__).resolve().parent.parent
 load_dotenv(_backend_root.parent / ".env")
 sys.path.insert(0, str(_backend_root))
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from openai import OpenAI
@@ -90,7 +90,10 @@ async def health_check():
 
 
 @app.get("/api/recommendations/{property_id}")
-async def get_recommendations(property_id: str):
+async def get_recommendations(
+    property_id: str,
+    generate: bool = Query(default=True, description="Generate recommendations when missing"),
+):
     assert _supabase is not None and _openai is not None
 
     # 1. Fetch property
@@ -131,7 +134,14 @@ async def get_recommendations(property_id: str):
             },
         )
 
-    # 4. Generate via the engine (2-step LLM pipeline)
+    # 4. Read-only mode: return empty recommendations without generating.
+    if not generate:
+        return {
+            "property_id": property_id,
+            "recommendations": [],
+        }
+
+    # 5. Generate via the engine (2-step LLM pipeline)
     try:
         recommendations = generate_recommendations(
             property_id=property_id,

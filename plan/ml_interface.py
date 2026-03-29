@@ -1,0 +1,217 @@
+"""
+ml_interface.py
+───────────────
+Data contract between the neighborhood scan pipeline (Oliver)
+and the ML survivability/revenue model (Ryan).
+
+Oliver provides: get_ml_input(property_id) → PropertyMLInput
+Ryan provides:   predict(PropertyMLInput) → PropertyMLOutput
+
+Nothing here hits an API. Oliver's caching layer populates the DB;
+this module reads from it and shapes the data.
+
+Data sources:
+  - Google Places API → category counts, ratings, reviews
+  - SerpAPI/Yelp     → complaint_rate, wait_rate (restaurants only)
+  - NYC Open Data    → business age (DOHMH inspections for restaurants,
+                       DCWP licenses for retail). Free, no API key.
+  - pckl.py          → foot traffic from NYC pedestrian network GeoJSON
+"""
+
+from __future__ import annotations
+from dataclasses import dataclass, field
+from typing import Optional
+
+
+# ── What Oliver gives the ML model ────────────────────────────────────────────
+
+
+@dataclass
+class FootTraffic:
+    """Pedestrian counts at a single point (property or nearby business)."""
+    weekday_am: Optional[int] = None   # 8-9 AM
+    weekday_mid: Optional[int] = None  # 12:30-1:30 PM
+    weekday_pm: Optional[int] = None   # 5-6 PM
+    weekend_am: Optional[int] = None
+    weekend_mid: Optional[int] = None
+    weekend_pm: Optional[int] = None
+    dist_meters: Optional[float] = None  # distance to nearest sidewalk segment
+
+
+@dataclass
+class NearbyBusiness:
+    """A single existing business found near the property."""
+    place_id: str
+    name: str
+    category: str                        # Google Places type
+    rating: Optional[float] = None
+    review_count: int = 0
+    lat: Optional[float] = None
+    lng: Optional[float] = None
+    business_age_years: Optional[float] = None  # from NYC Open Data (see docstring)
+    foot_traffic: Optional[FootTraffic] = None  # if you need per-business traffic
+
+
+@dataclass
+class CategoryScan:
+    """
+    Everything we know about ONE Google Places category in the property's radius.
+    count == 0 means this category has no nearby competitors.
+    """
+    category: str                        # Google Places type, e.g. "italian_restaurant"
+    survival_category: str               # mapped historical bucket, e.g. "full_service_restaurant"
+    historical_survival_rate: float      # 0-1, from the static dataset
+    count: int = 0                       # how many exist nearby
+    avg_rating: Optional[float] = None
+    top_rating: Optional[float] = None
+    top_review_count: int = 0
+    businesses: list[NearbyBusiness] = field(default_factory=list)
+
+    # Yelp enrichment (restaurants only, None for retail)
+    complaint_rate: Optional[float] = None
+    wait_rate: Optional[float] = None
+
+    # Business age (from NYC Open Data, None for zero-count categories)
+    avg_business_age_years: Optional[float] = None
+
+
+@dataclass
+class PropertyMLInput:
+    """
+    Complete input package for the ML model for ONE property.
+    Contains the property's foot traffic + every category scan.
+    """
+    property_id: str
+    lat: float
+    lng: float
+    address: str
+
+    # foot traffic at the property itself
+    property_foot_traffic: FootTraffic
+
+    # one entry per category (including zeros)
+    categories: list[CategoryScan]
+
+
+# ── What the ML model returns ─────────────────────────────────────────────────
+
+
+@dataclass
+class CategoryPrediction:
+    """ML output for a single business category at this property."""
+    category: str                         # Google Places type
+    survival_probability: float           # 0-1
+    estimated_capture_rate: float         # fraction of foot traffic that converts
+    estimated_annual_revenue: float       # dollars
+
+
+@dataclass
+class PropertyMLOutput:
+    """Full ML output for one property."""
+    property_id: str
+    predictions: list[CategoryPrediction]
+
+
+# ── Stub loader (Oliver replaces internals, signature stays fixed) ────────────
+
+
+def get_ml_input(property_id: str) -> PropertyMLInput:
+    """
+    Oliver implements this. Reads from neighborhood_scan JSONB + foot traffic.
+    Ryan calls this and doesn't care how it's sourced.
+
+    Currently returns mock data. Oliver will swap internals to read from DB;
+    the signature and return type stay the same.
+    """
+    return mock_ml_input()
+
+
+def mock_ml_input() -> PropertyMLInput:
+    """
+    Hardcoded example so Ryan can develop against real-shaped data.
+    Represents a property near Chinatown/NoLiTa.
+    """
+    return PropertyMLInput(
+        property_id="test-property-001",
+        lat=40.7258,
+        lng=-73.9932,
+        address="123 Mott St, New York, NY 10013",
+        property_foot_traffic=FootTraffic(
+            weekday_am=1200,
+            weekday_mid=3400,
+            weekday_pm=2800,
+            weekend_am=900,
+            weekend_mid=4100,
+            weekend_pm=3500,
+            dist_meters=4.2,
+        ),
+        categories=[
+            CategoryScan(
+                category="italian_restaurant",
+                survival_category="full_service_restaurant",
+                historical_survival_rate=0.58,
+                count=5,
+                avg_rating=3.9,
+                top_rating=4.3,
+                top_review_count=230,
+                complaint_rate=0.12,
+                wait_rate=0.08,
+                avg_business_age_years=8.3,
+                businesses=[
+                    NearbyBusiness(
+                        place_id="ChIJ_example1",
+                        name="Lombardi's Pizza",
+                        category="italian_restaurant",
+                        rating=4.3,
+                        review_count=230,
+                        lat=40.7256,
+                        lng=-73.9955,
+                        business_age_years=12.5,
+                    ),
+                ],
+            ),
+            CategoryScan(
+                category="chinese_restaurant",
+                survival_category="full_service_restaurant",
+                historical_survival_rate=0.58,
+                count=18,
+                avg_rating=3.7,
+                top_rating=4.5,
+                top_review_count=890,
+                complaint_rate=0.22,
+                wait_rate=0.15,
+                avg_business_age_years=11.2,
+                businesses=[],  # omitted for brevity, would have 18 entries
+            ),
+            CategoryScan(
+                category="acai_shop",
+                survival_category="juice_smoothie_bar",
+                historical_survival_rate=0.42,
+                count=0,  # none nearby — gap category
+                businesses=[],
+            ),
+            CategoryScan(
+                category="grocery_store",
+                survival_category="grocery_store",
+                historical_survival_rate=0.72,
+                count=3,
+                avg_rating=4.1,
+                top_rating=4.4,
+                top_review_count=540,
+                # no yelp data — retail category
+                avg_business_age_years=6.7,
+                businesses=[],
+            ),
+        ],
+    )
+
+
+# ── Ryan's entry point (he implements this) ───────────────────────────────────
+
+
+def predict(ml_input: PropertyMLInput) -> PropertyMLOutput:
+    """
+    Ryan implements this. Takes the full property context,
+    returns survivability + revenue predictions per category.
+    """
+    raise NotImplementedError("Ryan is building this")

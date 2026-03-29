@@ -24,7 +24,7 @@ CATEGORIES = [
 
 WAIT_KEYWORDS = ["wait", "line", "packed", "busy", "crowded", "hour"]
 COMPLAINT_KEYWORDS = ["never", "awful", "terrible", "worst", "rude", "disgusting", "avoid"]
-UNMET_KEYWORDS = ["wish", "need more", "only one", "no other", "nowhere else"]
+UNMET_KEYWORDS = ["wish", "needs more", "only one", "no other", "nowhere else"]
 TIMEOUT = 10
 MIN_REVIEWS = 10
 

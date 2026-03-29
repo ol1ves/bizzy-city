@@ -14,7 +14,7 @@ from supabase import create_client
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from recommendation_engine import generate_recommendations
+from backend.recommendation_engine import generate_recommendations
 
 
 def _print_table(recommendations: list[dict]):

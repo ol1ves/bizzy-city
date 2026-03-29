@@ -12,6 +12,7 @@ Usage:
     python backfill-analysis.py --types restaurant     # restaurant only
     python backfill-analysis.py --types retail foot_traffic
     python backfill-analysis.py --force                # re-analyze everything
+    python backfill-analysis.py --dry-run              # simulate with stub data, no APIs called
 
 Env vars (loaded from ../.env):
     SUPABASE_URL
@@ -62,6 +63,35 @@ HEADERS = {
     "Prefer": "return=minimal",
 }
 
+_DRY_RUN_PROPERTIES = [
+    {"id": "dry-1", "address": "123 Broadway, New York, NY",    "latitude": 40.7258, "longitude": -73.9932},
+    {"id": "dry-2", "address": "456 5th Ave, New York, NY",     "latitude": 40.7527, "longitude": -73.9772},
+    {"id": "dry-3", "address": "789 Atlantic Ave, Brooklyn, NY","latitude": 40.6839, "longitude": -73.9754},
+]
+
+_DRY_RUN_STUBS = {
+    "restaurant": (
+        "1. pizza_restaurant | Score: 1234.5 | Share: 12.3% | Pain: LOW\n"
+        "2. coffee_shop      | Score:  876.2 | Share:  8.7% | Pain: MED\n"
+        "[dry-run stub]"
+    ),
+    "retail": (
+        "1. grocery_store | Score: 567.8 | Share: 8.5% | Pain: MED\n"
+        "2. beauty_salon  | Score: 312.4 | Share: 5.1% | Pain: LOW\n"
+        "[dry-run stub]"
+    ),
+    "foot_traffic": (
+        "Weekday AM (8-9): 1,234\n"
+        "Weekday Midday (12:30-1:30): 2,345\n"
+        "Weekday PM (5-6): 3,102\n"
+        "Weekend AM (8-9): 891\n"
+        "Weekend Midday (12:30-1:30): 1,678\n"
+        "Weekend PM (5-6): 2,210\n"
+        "Nearest sidewalk segment: 4.2m away\n"
+        "[dry-run stub]"
+    ),
+}
+
 
 def fetch_properties(column: str, force: bool) -> list:
     params = {"select": f"id,address,latitude,longitude,{column}"}
@@ -80,10 +110,26 @@ def fetch_properties(column: str, force: bool) -> list:
     return data
 
 
-def run_analysis(analysis_type: str, force: bool):
+def run_analysis(analysis_type: str, force: bool, dry_run: bool = False):
     cfg = ANALYSIS_MAP[analysis_type]
     column = cfg["column"]
     analyze = cfg["fn"]
+
+    if dry_run:
+        properties = _DRY_RUN_PROPERTIES
+        stub = _DRY_RUN_STUBS[analysis_type]
+        print(f"\n[{analysis_type}] [DRY-RUN] {len(properties)} sample properties")
+        for p in properties:
+            label = p.get("address") or p["id"]
+            lat, lng = p.get("latitude"), p.get("longitude")
+            if not lat or not lng:
+                print(f"  SKIP {label} -- missing lat/lng")
+                continue
+            preview = stub.replace("\n", " | ")[:80]
+            print(f"  [DRY-RUN] WOULD PATCH {label}")
+            print(f"            → {preview}")
+        print(f"[{analysis_type}] [DRY-RUN] Done: {len(properties)}/{len(properties)} (simulated)")
+        return
 
     properties = fetch_properties(column, force)
     print(f"\n[{analysis_type}] {len(properties)} properties to process")
@@ -122,9 +168,6 @@ def run_analysis(analysis_type: str, force: bool):
 
 
 def main():
-    if not SUPABASE_URL or not SUPABASE_KEY:
-        sys.exit("SUPABASE_URL and SUPABASE_SERVICE_KEY must be set in .env")
-
     parser = argparse.ArgumentParser(
         description="Back-populate analysis columns for properties."
     )
@@ -140,12 +183,23 @@ def main():
         action="store_true",
         help="Re-run even if the analysis column already has data",
     )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Simulate the run using stub data; no APIs or database are called",
+    )
     args = parser.parse_args()
 
-    for t in args.types:
-        run_analysis(t, args.force)
+    if not args.dry_run and (not SUPABASE_URL or not SUPABASE_KEY):
+        sys.exit("SUPABASE_URL and SUPABASE_SERVICE_KEY must be set in .env")
 
-    print("\nAll done.")
+    for t in args.types:
+        run_analysis(t, args.force, dry_run=args.dry_run)
+
+    if args.dry_run:
+        print("\nDry run complete — no APIs were called and no data was written.")
+    else:
+        print("\nAll done.")
 
 
 if __name__ == "__main__":

@@ -19,6 +19,7 @@ export interface Property {
   retail_analyzed_at: string | null;
   foot_traffic_analysis: string | null;
   foot_traffic_analyzed_at: string | null;
+  ml_predictions: Record<string, unknown>[] | null;
   top_rec_business: string | null;
   top_rec_score: number | null;
   top_rec_reasoning: string | null;

@@ -3,7 +3,14 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { Recommendation } from '@/lib/types';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
+const RAW_API_URL = process.env.NEXT_PUBLIC_API_URL;
+const API_URL = (
+  RAW_API_URL
+    ? /^(https?:)?\/\//.test(RAW_API_URL)
+      ? RAW_API_URL
+      : `https://${RAW_API_URL}`
+    : 'http://localhost:8000'
+).replace(/\/+$/, '');
 
 export function useRecommendations(propertyId: string | null) {
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);

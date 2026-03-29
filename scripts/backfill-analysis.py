@@ -10,14 +10,20 @@ unless --force is passed.
 --full-scan runs all three analyses PLUS builds the neighborhood_scan JSONB
 for the ML pipeline, writing all four columns in a single PATCH per property.
 
+--predict runs the ML survivability/revenue model from cached JSONB (no API
+calls). Results are stored in properties.ml_predictions.
+
 Usage:
-    python backfill-analysis.py                        # run all three (text only)
-    python backfill-analysis.py --types restaurant     # restaurant only
+    python backfill-analysis.py                            # run all three (1 property, confirmation prompt)
+    python backfill-analysis.py --types restaurant         # restaurant only
     python backfill-analysis.py --types retail foot_traffic
-    python backfill-analysis.py --force                # re-analyze everything
-    python backfill-analysis.py --dry-run              # simulate with stub data, no APIs called
-    python backfill-analysis.py --full-scan             # all analyses + JSONB
-    python backfill-analysis.py --rescore               # re-run formulas from cached JSONB (no API calls)
+    python backfill-analysis.py --force                    # re-analyze everything
+    python backfill-analysis.py --dry-run                  # simulate with stub data, no APIs called
+    python backfill-analysis.py --full-scan                # all analyses + JSONB + ML predictions
+    python backfill-analysis.py --full-scan --limit 5 -y   # process 5 properties, skip confirmation
+    python backfill-analysis.py --rescore                  # re-run formulas from cached JSONB (no API calls)
+    python backfill-analysis.py --predict                  # run ML model from cached JSONB (no API calls)
+    python backfill-analysis.py --limit 0                  # process ALL properties (0 = no limit)
 
 Env vars (loaded from ../.env):
     SUPABASE_URL
@@ -40,15 +46,21 @@ load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "backend"))
 from RestaurantAnalysis import get_restaurant_analysis
-from RestaurantAnalysis.FullAPIPull import scrape_area, opportunity_score, enrich_and_rank, calculate_hybrid_score
+from RestaurantAnalysis.FullAPIPull import scrape_area, opportunity_score, enrich_and_rank, calculate_hybrid_score, CATEGORIES as RESTAURANT_CATEGORIES
 from RetailAnalysis import get_retail_analysis
 from RetailAnalysis.RetailAPIPull import CATEGORIES as RETAIL_CATEGORIES, search_nearby_retail, calculate_hub_aware_opportunity
 from FootTraffic import get_foot_traffic_analysis
+from dataclasses import asdict
 from neighborhood_scan import (
     build_neighborhood_scan,
     build_foot_traffic,
     reconstruct_restaurant_inputs,
     reconstruct_retail_inputs,
+)
+from ml_interface import (
+    PropertyMLInput,
+    predict,
+    _deserialize_category_scan,
 )
 
 SUPABASE_URL = os.getenv("SUPABASE_URL")
@@ -77,6 +89,72 @@ HEADERS = {
     "Content-Type": "application/json",
     "Prefer": "return=minimal",
 }
+
+REQUIRED_COLUMNS = [
+    "neighborhood_scan",
+    "restaurant_analysis",
+    "retail_analysis",
+    "foot_traffic_analysis",
+    "ml_predictions",
+]
+
+
+def _check_db_connection() -> None:
+    """
+    Pre-flight: verify Supabase is reachable, credentials are valid,
+    and all required columns exist on the properties table.
+    Exits on failure so we never start expensive API calls only to
+    fail at write time.
+    """
+    print("Pre-flight DB check...")
+
+    # 1. Read check
+    try:
+        resp = requests.get(
+            f"{SUPABASE_URL}/rest/v1/properties",
+            headers=HEADERS,
+            params={"select": "id", "limit": "1"},
+        )
+    except requests.ConnectionError as e:
+        sys.exit(f"  FAIL: cannot reach Supabase at {SUPABASE_URL}\n  {e}")
+
+    if resp.status_code == 401:
+        sys.exit("  FAIL: SUPABASE_SERVICE_KEY is invalid (401 Unauthorized)")
+    if not resp.ok:
+        sys.exit(f"  FAIL: Supabase returned {resp.status_code}: {resp.text}")
+
+    print("  OK   read access")
+
+    # 2. Column existence check (attempt selecting every required column)
+    col_select = ",".join(REQUIRED_COLUMNS)
+    resp = requests.get(
+        f"{SUPABASE_URL}/rest/v1/properties",
+        headers=HEADERS,
+        params={"select": f"id,{col_select}", "limit": "1"},
+    )
+    if resp.status_code == 400:
+        sys.exit(
+            f"  FAIL: one or more required columns missing from properties table.\n"
+            f"  Required: {REQUIRED_COLUMNS}\n"
+            f"  Run the pending Supabase migration first.\n"
+            f"  Supabase response: {resp.text}"
+        )
+    if not resp.ok:
+        sys.exit(f"  FAIL: column check returned {resp.status_code}: {resp.text}")
+
+    print("  OK   required columns exist")
+
+    # 3. Write check — PATCH a non-existent ID so nothing actually changes
+    resp = requests.patch(
+        f"{SUPABASE_URL}/rest/v1/properties?id=eq.00000000-0000-0000-0000-000000000000",
+        headers=HEADERS,
+        json={"address": "__write_check__"},
+    )
+    if resp.status_code in (401, 403):
+        sys.exit(f"  FAIL: write permission denied ({resp.status_code})")
+
+    print("  OK   write access")
+    print()
 
 _DRY_RUN_PROPERTIES = [
     {"id": "dry-1", "address": "123 Broadway, New York, NY",    "latitude": 40.7258, "longitude": -73.9932},
@@ -108,6 +186,152 @@ _DRY_RUN_STUBS = {
 }
 
 
+# ── Pre-flight & Approval ────────────────────────────────────────────────────
+
+_API_COSTS = {
+    "restaurant": {
+        "Google Places": f"{len(RESTAURANT_CATEGORIES)} searchNearby",
+        "SerpAPI (Yelp)": "15-30 (place + reviews)",
+        "google_per_prop": len(RESTAURANT_CATEGORIES),
+        "serp_min": 15,
+        "serp_max": 30,
+    },
+    "retail": {
+        "Google Places": f"{len(RETAIL_CATEGORIES)} searchNearby",
+        "google_per_prop": len(RETAIL_CATEGORIES),
+        "serp_min": 0,
+        "serp_max": 0,
+    },
+    "foot_traffic": {
+        "google_per_prop": 0,
+        "serp_min": 0,
+        "serp_max": 0,
+    },
+    "full_scan": {
+        "Google Places (restaurant)": f"{len(RESTAURANT_CATEGORIES)} searchNearby",
+        "Google Places (retail)": f"{len(RETAIL_CATEGORIES)} searchNearby",
+        "SerpAPI (Yelp)": "15-30 (place + reviews)",
+        "google_per_prop": len(RESTAURANT_CATEGORIES) + len(RETAIL_CATEGORIES),
+        "serp_min": 15,
+        "serp_max": 30,
+    },
+}
+
+
+def _preflight_summary(mode: str, properties: list[dict], types: list[str] | None = None) -> bool:
+    """
+    Print API cost summary. Returns True if external API calls will be made.
+    """
+    n = len(properties)
+
+    if mode in ("rescore", "predict"):
+        print(f"\n  Mode:       --{mode}")
+        print(f"  Properties: {n}")
+        print(f"  External API calls: 0 (runs from cached data)")
+        return False
+
+    if mode == "full_scan":
+        cost = _API_COSTS["full_scan"]
+        google_total = n * cost["google_per_prop"]
+        serp_min = n * cost["serp_min"]
+        serp_max = n * cost["serp_max"]
+
+        print()
+        print("=" * 55)
+        print("  Backfill Pre-flight Summary")
+        print("=" * 55)
+        print(f"  Mode:       --full-scan")
+        print(f"  Properties: {n}")
+        print("-" * 55)
+        print("  API calls per property:")
+        for label, desc in cost.items():
+            if label.startswith(("google_", "serp_")):
+                continue
+            print(f"    {label}: {desc}")
+        print("-" * 55)
+        print(f"  Estimated totals:")
+        print(f"    Google Places:  {google_total} calls  ({n} x {cost['google_per_prop']})")
+        print(f"    SerpAPI:        {serp_min}-{serp_max} calls  ({n} x {cost['serp_min']}-{cost['serp_max']})")
+        print("-" * 55)
+        print("  Properties:")
+        for i, p in enumerate(properties, 1):
+            print(f"    {i}. {p.get('address') or p['id']}")
+        print("=" * 55)
+
+        return google_total > 0 or serp_max > 0
+
+    # --types mode: summarize each requested type
+    active_types = types or ALL_TYPES
+    total_google = 0
+    total_serp_min = 0
+    total_serp_max = 0
+
+    api_lines = []
+    for t in active_types:
+        cost = _API_COSTS.get(t, {})
+        g = cost.get("google_per_prop", 0)
+        s_min = cost.get("serp_min", 0)
+        s_max = cost.get("serp_max", 0)
+        total_google += n * g
+        total_serp_min += n * s_min
+        total_serp_max += n * s_max
+        for label, desc in cost.items():
+            if label.startswith(("google_", "serp_")):
+                continue
+            api_lines.append(f"    {label} ({t}): {desc}")
+
+    has_external = total_google > 0 or total_serp_max > 0
+    if not has_external:
+        print(f"\n  Mode:       --types {' '.join(active_types)}")
+        print(f"  Properties: {n}")
+        print(f"  External API calls: 0 (runs from cached/local data)")
+        return False
+
+    print()
+    print("=" * 55)
+    print("  Backfill Pre-flight Summary")
+    print("=" * 55)
+    print(f"  Mode:       --types {' '.join(active_types)}")
+    print(f"  Properties: {n}")
+    print("-" * 55)
+    print("  API calls per property:")
+    for line in api_lines:
+        print(line)
+    print("-" * 55)
+    print(f"  Estimated totals:")
+    if total_google > 0:
+        print(f"    Google Places:  {total_google} calls")
+    if total_serp_max > 0:
+        print(f"    SerpAPI:        {total_serp_min}-{total_serp_max} calls")
+    print("-" * 55)
+    print("  Properties:")
+    for i, p in enumerate(properties, 1):
+        print(f"    {i}. {p.get('address') or p['id']}")
+    print("=" * 55)
+
+    return True
+
+
+def _confirm_proceed(auto_approve: bool) -> bool:
+    if auto_approve:
+        print("  --yes flag: auto-approved.")
+        return True
+    try:
+        answer = input("\nProceed? [y/N]: ").strip().lower()
+    except (EOFError, KeyboardInterrupt):
+        answer = ""
+    if answer in ("y", "yes"):
+        return True
+    print("Aborted.")
+    return False
+
+
+def _apply_limit(properties: list, limit: int) -> list:
+    if limit > 0:
+        return properties[:limit]
+    return properties
+
+
 def fetch_properties(column: str, force: bool) -> list:
     params = {"select": f"id,address,latitude,longitude,{column}"}
     if not force:
@@ -125,13 +349,14 @@ def fetch_properties(column: str, force: bool) -> list:
     return data
 
 
-def run_analysis(analysis_type: str, force: bool, dry_run: bool = False):
+def run_analysis(analysis_type: str, force: bool, dry_run: bool = False,
+                  limit: int = 1, auto_approve: bool = False):
     cfg = ANALYSIS_MAP[analysis_type]
     column = cfg["column"]
     analyze = cfg["fn"]
 
     if dry_run:
-        properties = _DRY_RUN_PROPERTIES
+        properties = _apply_limit(_DRY_RUN_PROPERTIES, limit)
         stub = _DRY_RUN_STUBS[analysis_type]
         print(f"\n[{analysis_type}] [DRY-RUN] {len(properties)} sample properties")
         for p in properties:
@@ -147,6 +372,12 @@ def run_analysis(analysis_type: str, force: bool, dry_run: bool = False):
         return
 
     properties = fetch_properties(column, force)
+    properties = _apply_limit(properties, limit)
+
+    needs_api = _preflight_summary("types", properties, types=[analysis_type])
+    if needs_api and not _confirm_proceed(auto_approve):
+        return
+
     print(f"\n[{analysis_type}] {len(properties)} properties to process")
 
     success = 0
@@ -183,10 +414,15 @@ def run_analysis(analysis_type: str, force: bool, dry_run: bool = False):
 
 
 def fetch_properties_for_scan(force: bool) -> list:
-    """Fetch properties that need a full neighborhood scan."""
-    params = {"select": "id,address,latitude,longitude,neighborhood_scan"}
-    if not force:
-        params["neighborhood_scan"] = "is.null"
+    """
+    Fetch properties for full scan. When not --force, returns ALL properties
+    so we can check each column individually for lazy updates.
+    """
+    params = {
+        "select": "id,address,latitude,longitude,zip_code,"
+                  "neighborhood_scan,restaurant_analysis,retail_analysis,"
+                  "foot_traffic_analysis,ml_predictions",
+    }
 
     resp = requests.get(
         f"{SUPABASE_URL}/rest/v1/properties", headers=HEADERS, params=params
@@ -232,10 +468,123 @@ def _format_retail_text(rankings: list[dict]) -> str:
     return "\n".join(lines)
 
 
-def run_full_scan(force: bool, dry_run: bool = False):
-    """Run all three analyses + JSONB assembly, writing 4 columns per property."""
+def _run_ml_predict(property_row: dict, scan_json: list[dict]) -> list[dict] | None:
+    """
+    Build PropertyMLInput from already-fetched data and run predict().
+    Returns serialized predictions list, or None on failure.
+    """
+    try:
+        categories = [_deserialize_category_scan(d) for d in scan_json]
+        ft = build_foot_traffic(property_row["latitude"], property_row["longitude"])
+
+        ml_input = PropertyMLInput(
+            property_id=property_row["id"],
+            lat=property_row["latitude"],
+            lng=property_row["longitude"],
+            address=property_row.get("address", ""),
+            zip_code=property_row.get("zip_code"),
+            property_foot_traffic=ft,
+            categories=categories,
+        )
+        output = predict(ml_input)
+        return [asdict(p) for p in output.predictions]
+    except Exception as e:
+        print(f"  ML predict failed: {e}")
+        return None
+
+
+def run_predict(force: bool, dry_run: bool = False,
+                limit: int = 1, auto_approve: bool = False):
+    """
+    Run ML predictions from cached neighborhood_scan JSONB. Zero API calls.
+    Writes results to properties.ml_predictions.
+    """
     if dry_run:
-        properties = _DRY_RUN_PROPERTIES
+        properties = _apply_limit(_DRY_RUN_PROPERTIES, limit)
+        print(f"\n[predict] [DRY-RUN] {len(properties)} sample properties")
+        for p in properties:
+            label = p.get("address") or p["id"]
+            print(f"  [DRY-RUN] WOULD run ML predict for {label}")
+        print(f"[predict] [DRY-RUN] Done: {len(properties)}/{len(properties)} (simulated)")
+        return
+
+    params = {"select": "id,address,latitude,longitude,zip_code,neighborhood_scan,ml_predictions"}
+    if not force:
+        params["neighborhood_scan"] = "not.is.null"
+
+    resp = requests.get(
+        f"{SUPABASE_URL}/rest/v1/properties", headers=HEADERS, params=params
+    )
+    if not resp.ok:
+        sys.exit(f"Supabase error {resp.status_code}: {resp.text}")
+
+    properties = resp.json()
+    if not isinstance(properties, list):
+        sys.exit(f"Unexpected response (expected list): {properties}")
+
+    properties = _apply_limit(properties, limit)
+    _preflight_summary("predict", properties)
+
+    print(f"\n[predict] {len(properties)} properties to process")
+
+    success = 0
+    for p in properties:
+        label = p.get("address") or p["id"]
+        scan_data = p.get("neighborhood_scan")
+        if not scan_data:
+            print(f"  SKIP {label} -- no neighborhood_scan data")
+            continue
+
+        if not force and p.get("ml_predictions"):
+            print(f"  SKIP {label} -- already has ml_predictions")
+            continue
+
+        if isinstance(scan_data, str):
+            scan_data = json.loads(scan_data)
+
+        predictions = _run_ml_predict(p, scan_data)
+        if predictions is None:
+            print(f"  FAIL {label} -- prediction returned None")
+            continue
+
+        try:
+            resp = requests.patch(
+                f"{SUPABASE_URL}/rest/v1/properties?id=eq.{p['id']}",
+                headers=HEADERS,
+                json={"ml_predictions": predictions},
+            )
+            resp.raise_for_status()
+            success += 1
+            print(f"  OK   {label} ({len(predictions)} categories predicted)")
+        except Exception as e:
+            print(f"  FAIL {label} -- {e}")
+
+    print(f"[predict] Done: {success}/{len(properties)} succeeded")
+
+
+def _needs_work(p: dict, force: bool) -> dict:
+    """
+    Inspect a property row and return which pieces still need work.
+    Returns a dict of booleans: {scan, restaurant, retail, foot_traffic, ml}.
+    """
+    if force:
+        return {"scan": True, "restaurant": True, "retail": True, "foot_traffic": True, "ml": True}
+
+    has_scan = bool(p.get("neighborhood_scan"))
+    return {
+        "scan": not has_scan,
+        "restaurant": not bool(p.get("restaurant_analysis")),
+        "retail": not bool(p.get("retail_analysis")),
+        "foot_traffic": not bool(p.get("foot_traffic_analysis")),
+        "ml": not bool(p.get("ml_predictions")),
+    }
+
+
+def run_full_scan(force: bool, dry_run: bool = False,
+                  limit: int = 1, auto_approve: bool = False):
+    """Run all three analyses + JSONB assembly + ML predictions per property."""
+    if dry_run:
+        properties = _apply_limit(_DRY_RUN_PROPERTIES, limit)
         print(f"\n[full-scan] [DRY-RUN] {len(properties)} sample properties")
         for p in properties:
             label = p.get("address") or p["id"]
@@ -243,7 +592,38 @@ def run_full_scan(force: bool, dry_run: bool = False):
         print(f"[full-scan] [DRY-RUN] Done: {len(properties)}/{len(properties)} (simulated)")
         return
 
-    properties = fetch_properties_for_scan(force)
+    all_properties = fetch_properties_for_scan(force)
+    all_properties = _apply_limit(all_properties, limit)
+
+    # Filter to properties that actually need at least one update
+    properties = []
+    for p in all_properties:
+        work = _needs_work(p, force)
+        if any(work.values()):
+            properties.append(p)
+
+    if not properties:
+        print("\n[full-scan] All properties are already up to date. Nothing to do.")
+        return
+
+    # Only count API calls for properties that need the scan (API-heavy part)
+    need_api_count = sum(1 for p in properties if _needs_work(p, force)["scan"])
+    if need_api_count < len(properties):
+        print(f"\n  {len(all_properties)} total properties, "
+              f"{len(properties)} need updates, "
+              f"{need_api_count} need new API scans")
+
+    needs_api = need_api_count > 0
+    if needs_api:
+        _preflight_summary("full_scan", properties[:need_api_count] if not force else properties)
+    else:
+        print(f"\n  Mode:       --full-scan (lazy)")
+        print(f"  Properties: {len(properties)}")
+        print(f"  External API calls: 0 (all scans cached, updating derived columns only)")
+
+    if needs_api and not _confirm_proceed(auto_approve):
+        return
+
     print(f"\n[full-scan] {len(properties)} properties to process")
 
     success = 0
@@ -255,50 +635,94 @@ def run_full_scan(force: bool, dry_run: bool = False):
             print(f"  SKIP {label} -- missing lat/lng")
             continue
 
-        if not force and p.get("neighborhood_scan"):
-            print(f"  SKIP {label} -- already has neighborhood_scan")
-            continue
+        work = _needs_work(p, force)
+        work_items = [k for k, v in work.items() if v]
+        print(f"  [{label}] needs: {', '.join(work_items)}")
 
         try:
-            # ── Restaurant scan (Google + Yelp) ──────────────────────
-            print(f"  [{label}] Running restaurant scan...")
-            google_data, total_found = scrape_area(lat, lng)
-            initial_ranked = opportunity_score(google_data)
-            final_ranked = enrich_and_rank(initial_ranked, google_data, total_found, top_n=15)
-            restaurant_text = _format_restaurant_text(final_ranked)
+            patch_data = {}
 
-            # ── Retail scan (Google only) ────────────────────────────
-            print(f"  [{label}] Running retail scan...")
-            raw_market_data = {}
-            for category in RETAIL_CATEGORIES:
-                raw_market_data[category] = search_nearby_retail(lat, lng, category)
-                time.sleep(0.05)
+            # ── Only run API-heavy scans if neighborhood_scan is missing ──
+            if work["scan"]:
+                print(f"  [{label}] Running restaurant scan...")
+                google_data, total_found = scrape_area(lat, lng)
+                initial_ranked = opportunity_score(google_data)
+                final_ranked = enrich_and_rank(initial_ranked, google_data, total_found, top_n=15)
 
-            retail_rankings = calculate_hub_aware_opportunity(raw_market_data)
-            retail_text = _format_retail_text(retail_rankings)
+                print(f"  [{label}] Running retail scan...")
+                raw_market_data = {}
+                for category in RETAIL_CATEGORIES:
+                    raw_market_data[category] = search_nearby_retail(lat, lng, category)
+                    time.sleep(0.05)
+                retail_rankings = calculate_hub_aware_opportunity(raw_market_data)
 
-            # ── Foot traffic (property location) ─────────────────────
-            print(f"  [{label}] Running foot traffic scan...")
-            foot_traffic_text = get_foot_traffic_analysis(lat, lng)
+                print(f"  [{label}] Running foot traffic scan...")
+                foot_traffic_text = get_foot_traffic_analysis(lat, lng)
 
-            # ── Build JSONB ──────────────────────────────────────────
-            print(f"  [{label}] Building neighborhood scan JSONB...")
-            scan_json = build_neighborhood_scan(
-                restaurant_data=google_data,
-                restaurant_yelp=final_ranked,
-                retail_data=raw_market_data,
-            )
+                print(f"  [{label}] Building neighborhood scan JSONB...")
+                scan_json = build_neighborhood_scan(
+                    restaurant_data=google_data,
+                    restaurant_yelp=final_ranked,
+                    retail_data=raw_market_data,
+                )
 
-            # ── Write all 4 columns in one PATCH ─────────────────────
-            patch_data = {
-                "neighborhood_scan": json.dumps(scan_json),
-            }
-            if restaurant_text and restaurant_text.strip():
-                patch_data["restaurant_analysis"] = restaurant_text
-            if retail_text and retail_text.strip():
-                patch_data["retail_analysis"] = retail_text
-            if foot_traffic_text and foot_traffic_text.strip():
-                patch_data["foot_traffic_analysis"] = foot_traffic_text
+                restaurant_text = _format_restaurant_text(final_ranked)
+                retail_text = _format_retail_text(retail_rankings)
+
+                patch_data["neighborhood_scan"] = scan_json
+                if restaurant_text and restaurant_text.strip():
+                    patch_data["restaurant_analysis"] = restaurant_text
+                if retail_text and retail_text.strip():
+                    patch_data["retail_analysis"] = retail_text
+                if foot_traffic_text and foot_traffic_text.strip():
+                    patch_data["foot_traffic_analysis"] = foot_traffic_text
+
+            else:
+                # Scan exists — reconstruct text columns from cached JSONB if needed
+                scan_json = p["neighborhood_scan"]
+                if isinstance(scan_json, str):
+                    scan_json = json.loads(scan_json)
+
+                if work["restaurant"]:
+                    google_data, total_found, yelp_by_cat = reconstruct_restaurant_inputs(scan_json)
+                    initial_ranked = opportunity_score(google_data)
+                    final_ranked = []
+                    for cat, initial_score, d in initial_ranked[:15]:
+                        yelp = yelp_by_cat.get(cat)
+                        h_score, m_share = calculate_hybrid_score(
+                            cat, d, google_data, yelp, total_found
+                        )
+                        final_ranked.append({"cat": cat, "score": h_score, "share": m_share, "g": d, "y": yelp})
+                    final_ranked.sort(key=lambda x: x["score"], reverse=True)
+                    restaurant_text = _format_restaurant_text(final_ranked)
+                    if restaurant_text and restaurant_text.strip():
+                        patch_data["restaurant_analysis"] = restaurant_text
+
+                if work["retail"]:
+                    raw_market_data = reconstruct_retail_inputs(scan_json)
+                    retail_rankings = calculate_hub_aware_opportunity(raw_market_data)
+                    retail_text = _format_retail_text(retail_rankings)
+                    if retail_text and retail_text.strip():
+                        patch_data["retail_analysis"] = retail_text
+
+                if work["foot_traffic"]:
+                    foot_traffic_text = get_foot_traffic_analysis(lat, lng)
+                    if foot_traffic_text and foot_traffic_text.strip():
+                        patch_data["foot_traffic_analysis"] = foot_traffic_text
+
+            # ── ML predictions (always from scan data, no API calls) ──
+            if work["ml"]:
+                print(f"  [{label}] Running ML predictions...")
+                if isinstance(scan_json, str):
+                    scan_json = json.loads(scan_json)
+                ml_preds = _run_ml_predict(p, scan_json)
+                if ml_preds is not None:
+                    patch_data["ml_predictions"] = ml_preds
+
+            # ── Write only changed columns ────────────────────────────
+            if not patch_data:
+                print(f"  SKIP {label} -- nothing to update")
+                continue
 
             resp = requests.patch(
                 f"{SUPABASE_URL}/rest/v1/properties?id=eq.{p['id']}",
@@ -307,16 +731,15 @@ def run_full_scan(force: bool, dry_run: bool = False):
             )
             resp.raise_for_status()
             success += 1
-            n_cats = len(scan_json)
-            n_biz = sum(len(s.get("businesses", [])) for s in scan_json)
-            print(f"  OK   {label} ({n_cats} categories, {n_biz} businesses)")
+            print(f"  OK   {label} (updated: {', '.join(patch_data.keys())})")
         except Exception as e:
             print(f"  FAIL {label} -- {e}")
 
     print(f"[full-scan] Done: {success}/{len(properties)} succeeded")
 
 
-def run_rescore(force: bool, dry_run: bool = False):
+def run_rescore(force: bool, dry_run: bool = False,
+                limit: int = 1, auto_approve: bool = False):
     """
     Re-run scoring formulas against cached neighborhood_scan JSONB, no API calls.
 
@@ -325,7 +748,7 @@ def run_rescore(force: bool, dry_run: bool = False):
     and PATCHes the text analysis columns.
     """
     if dry_run:
-        properties = _DRY_RUN_PROPERTIES
+        properties = _apply_limit(_DRY_RUN_PROPERTIES, limit)
         print(f"\n[rescore] [DRY-RUN] {len(properties)} sample properties")
         for p in properties:
             label = p.get("address") or p["id"]
@@ -346,6 +769,9 @@ def run_rescore(force: bool, dry_run: bool = False):
     properties = resp.json()
     if not isinstance(properties, list):
         sys.exit(f"Unexpected response (expected list): {properties}")
+
+    properties = _apply_limit(properties, limit)
+    _preflight_summary("rescore", properties)
 
     print(f"\n[rescore] {len(properties)} properties to rescore")
 
@@ -441,6 +867,17 @@ def main():
         action="store_true",
         help="Simulate the run using stub data; no APIs or database are called",
     )
+    parser.add_argument(
+        "--limit",
+        type=int,
+        default=1,
+        help="Max properties to process (default: 1). Use --limit 0 for all.",
+    )
+    parser.add_argument(
+        "-y", "--yes",
+        action="store_true",
+        help="Skip confirmation prompt (use for scripted runs)",
+    )
     mode_group = parser.add_mutually_exclusive_group()
     mode_group.add_argument(
         "--full-scan",
@@ -452,18 +889,30 @@ def main():
         action="store_true",
         help="Re-run scoring formulas from cached JSONB (no API calls)",
     )
+    mode_group.add_argument(
+        "--predict",
+        action="store_true",
+        help="Run ML model from cached neighborhood_scan JSONB (no API calls)",
+    )
     args = parser.parse_args()
 
     if not args.dry_run and (not SUPABASE_URL or not SUPABASE_KEY):
         sys.exit("SUPABASE_URL and SUPABASE_SERVICE_KEY must be set in .env")
 
+    if not args.dry_run:
+        _check_db_connection()
+
+    common = dict(limit=args.limit, auto_approve=args.yes)
+
     if args.full_scan:
-        run_full_scan(args.force, dry_run=args.dry_run)
+        run_full_scan(args.force, dry_run=args.dry_run, **common)
     elif args.rescore:
-        run_rescore(args.force, dry_run=args.dry_run)
+        run_rescore(args.force, dry_run=args.dry_run, **common)
+    elif args.predict:
+        run_predict(args.force, dry_run=args.dry_run, **common)
     else:
         for t in args.types:
-            run_analysis(t, args.force, dry_run=args.dry_run)
+            run_analysis(t, args.force, dry_run=args.dry_run, **common)
 
     if args.dry_run:
         print("\nDry run complete — no APIs were called and no data was written.")

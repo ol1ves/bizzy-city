@@ -21,12 +21,18 @@ Data sources:
 from __future__ import annotations
 
 import json
+import math
 import os
 from dataclasses import dataclass, field
 from typing import Optional
-from ML_Algorithm import ProfitPrediction as pp
+
 import requests
 from dotenv import load_dotenv
+
+try:
+    from ML_Algorithm import ProfitPrediction as pp
+except Exception:
+    pp = None
 
 _PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 load_dotenv(os.path.join(_PROJECT_ROOT, ".env"))
@@ -97,12 +103,13 @@ class PropertyMLInput:
     lat: float
     lng: float
     address: str
+    zip_code: Optional[str] = None
 
     # foot traffic at the property itself
-    property_foot_traffic: FootTraffic
+    property_foot_traffic: FootTraffic = field(default_factory=FootTraffic)
 
     # one entry per category (including zeros)
-    categories: list[CategoryScan]
+    categories: list[CategoryScan] = field(default_factory=list)
 
 
 # ── What the ML model returns ─────────────────────────────────────────────────
@@ -185,7 +192,7 @@ def get_ml_input(property_id: str) -> PropertyMLInput:
         "Authorization": f"Bearer {supabase_key}",
     }
     params = {
-        "select": "id,address,latitude,longitude,neighborhood_scan",
+        "select": "id,address,latitude,longitude,zip_code,neighborhood_scan",
         "id": f"eq.{property_id}",
     }
     resp = requests.get(
@@ -220,6 +227,7 @@ def get_ml_input(property_id: str) -> PropertyMLInput:
         lat=row["latitude"],
         lng=row["longitude"],
         address=row["address"],
+        zip_code=row.get("zip_code"),
         property_foot_traffic=property_ft,
         categories=categories,
     )
@@ -235,6 +243,7 @@ def mock_ml_input() -> PropertyMLInput:
         lat=40.7258,
         lng=-73.9932,
         address="123 Mott St, New York, NY 10013",
+        zip_code="10013",
         property_foot_traffic=FootTraffic(
             weekday_am=1200,
             weekday_mid=3400,
@@ -316,20 +325,159 @@ def mock_ml_input() -> PropertyMLInput:
     )
 
 
-# ── Ryan's entry point (he implements this) ───────────────────────────────────
+# ── Fallback constants (mirrors ProfitPrediction.py for when .pkl is absent) ──
+
+_INDUSTRY_PROFILES = {
+    'accommodation_and_food_services': {
+        'rate': [0.829, 0.724, 0.648, 0.587, 0.536, 0.377], 'friction': 1.1,
+    },
+    'health_care_and_social_assistance': {
+        'rate': [0.827, 0.732, 0.661, 0.603, 0.555, 0.395], 'friction': 0.7,
+    },
+    'retail_trade': {
+        'rate': [0.846, 0.746, 0.670, 0.610, 0.558, 0.391], 'friction': 1.3,
+    },
+    'arts_entertainment_and_recreation': {
+        'rate': [0.813, 0.706, 0.624, 0.559, 0.505, 0.327], 'friction': 1.2,
+    },
+    'real_estate_and_rental_and_leasing': {
+        'rate': [0.832, 0.733, 0.658, 0.596, 0.547, 0.370], 'friction': 2.0,
+    },
+    'other_services': {
+        'rate': [0.827, 0.731, 0.657, 0.596, 0.546, 0.376], 'friction': 1.0,
+    },
+}
+
+_NYC_INCOMES = {
+    '10032': 27257, '10033': 27257, '10040': 27257, '10034': 27257, '10463': 27257,
+    '10031': 26694, '10027': 26694,
+    '10030': 34463, '10037': 34463, '10039': 34463,
+    '10029': 22975, '10035': 22975,
+    '10023': 85724, '10024': 85724, '10025': 85724, '10069': 85724,
+    '10021': 87724, '10028': 87724, '10044': 87724, '10065': 87724,
+    '10075': 87724, '10128': 87724,
+    '10001': 77071, '10011': 77071, '10018': 77071, '10019': 77071,
+    '10020': 77071, '10036': 77071,
+    '10010': 83546, '10016': 83546, '10017': 83546, '10022': 83546,
+    '10004': 93990, '10005': 93990, '10006': 93990, '10007': 93990,
+    '10012': 93990, '10013': 93990, '10014': 93990, '10280': 93990,
+    '10002': 23393, '10003': 23393, '10009': 23393,
+}
+
+
+def _get_profiles() -> dict:
+    return pp.INDUSTRY_PROFILES if pp else _INDUSTRY_PROFILES
+
+
+def _foot_traffic_to_dict(ft: FootTraffic) -> dict:
+    return {
+        'weekday_am': ft.weekday_am or 0,
+        'weekday_mid': ft.weekday_mid or 0,
+        'weekday_pm': ft.weekday_pm or 0,
+        'weekend_am': ft.weekend_am or 0,
+        'weekend_mid': ft.weekend_mid or 0,
+        'weekend_pm': ft.weekend_pm or 0,
+    }
+
+
+def _calc_avg_traffic(traffic_dict: dict) -> float:
+    if pp:
+        return pp.calculate_average_traffic(traffic_dict)
+    weekday = traffic_dict['weekday_am'] + traffic_dict['weekday_mid'] + traffic_dict['weekday_pm']
+    weekend = traffic_dict['weekend_am'] + traffic_dict['weekend_mid'] + traffic_dict['weekend_pm']
+    return round(((weekday * 5) + (weekend * 2)) / 7, 2)
+
+
+def _get_advanced_feats(zip_code: str | None, foot_traffic: float, industry_label: str) -> dict:
+    if pp:
+        return pp.get_advanced_features(zip_code, foot_traffic, industry_label)
+    profiles = _INDUSTRY_PROFILES
+    base_income = _NYC_INCOMES.get(str(zip_code), 35000) if zip_code else 35000
+    friction = profiles[industry_label].get('friction', 1.0)
+    if base_income > 85000:
+        tier = 3
+    elif base_income > 70000:
+        tier = 2
+    elif base_income > 30000:
+        tier = 1
+    else:
+        tier = 0
+    return {
+        'income_proxy': base_income,
+        'traffic_volume': foot_traffic,
+        'neighborhood_tier': tier,
+        'spend_capacity': foot_traffic * (base_income / 100_000),
+        'traffic_efficiency': math.log1p(foot_traffic) / friction,
+        'industry_friction': friction,
+    }
+
+
+def _build_competitors(cat_scan: CategoryScan, avg_property_traffic: float) -> list[dict]:
+    """Map NearbyBusiness list to the dict format ProfitPrediction expects."""
+    comps = []
+    for biz in cat_scan.businesses:
+        biz_traffic = avg_property_traffic
+        if biz.foot_traffic:
+            biz_traffic = _calc_avg_traffic(_foot_traffic_to_dict(biz.foot_traffic))
+        comps.append({
+            'years_open': biz.business_age_years or 0,
+            'foot_traffic': biz_traffic,
+        })
+    return comps
+
+
+def _formula_score(survival_cat: str, feats: dict, competitors: list[dict]) -> float:
+    """Heuristic score (0-100) when the trained .pkl model is unavailable."""
+    profiles = _INDUSTRY_PROFILES
+    base_rate = profiles[survival_cat]['rate'][4]
+    tier_bonus = feats['neighborhood_tier'] * 5
+    comp_count = len(competitors)
+    competition_penalty = min(comp_count * 2, 30)
+    score = base_rate * 100 + tier_bonus - competition_penalty
+    return max(0.0, min(score, 100.0))
+
+
+# ── Prediction entry point ───────────────────────────────────────────────────
 
 
 def predict(ml_input: PropertyMLInput) -> PropertyMLOutput:
     """
-    Ryan implements this. Takes the full property context,
-    returns survivability + revenue predictions per category.
+    Run the ML survivability/revenue model for every category in the input.
+    Uses ProfitPrediction.pkl when available, falls back to formula-based
+    scoring otherwise.
     """
-    zip = None
-    traffic_data =None
-    nearby_competitors = None
-    survival_cat = None
-    avg_traffic = pp.calculate_average_traffic(traffic_data)
-    capture_rate = pp.get_advanced_features(zip, avg_traffic, survival_cat)['traffic_efficiency']
-    base_survival_rate_5 = pp.INDUSTRY_PROFILES[survival_cat]['rate'][4]
-    score = pp.predict_lot_success_ml(zip, avg_traffic, survival_cat, 0, nearby_competitors)
-    raise NotImplementedError("Ryan is building this")
+    zip_code = ml_input.zip_code
+    traffic_dict = _foot_traffic_to_dict(ml_input.property_foot_traffic)
+    avg_traffic = _calc_avg_traffic(traffic_dict)
+    profiles = _get_profiles()
+
+    predictions: list[CategoryPrediction] = []
+    for cat_scan in ml_input.categories:
+        survival_cat = cat_scan.survival_category
+        if survival_cat not in profiles:
+            continue
+
+        competitors = _build_competitors(cat_scan, avg_traffic)
+        feats = _get_advanced_feats(zip_code, avg_traffic, survival_cat)
+
+        if pp:
+            score = float(pp.predict_lot_success_ml(
+                zip_code, avg_traffic, survival_cat, 0, competitors,
+            ))
+        else:
+            score = _formula_score(survival_cat, feats, competitors)
+
+        base_rate_5yr = profiles[survival_cat]['rate'][4]
+        survival_prob = min(base_rate_5yr * (score / 50.0), 1.0)
+        capture_rate = min(max(feats['traffic_efficiency'] / 10.0, 0.0), 1.0)
+        annual_revenue = feats['spend_capacity'] * 365 * capture_rate * (score / 100.0)
+
+        predictions.append(CategoryPrediction(
+            category=cat_scan.category,
+            survival_probability=round(survival_prob, 4),
+            estimated_capture_rate=round(capture_rate, 4),
+            estimated_annual_revenue=round(annual_revenue, 2),
+        ))
+
+    predictions.sort(key=lambda p: p.survival_probability, reverse=True)
+    return PropertyMLOutput(property_id=ml_input.property_id, predictions=predictions)

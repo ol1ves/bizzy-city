@@ -4,12 +4,12 @@
 //   Analyzed & high score (>=70): warm coral
 //   Analyzed & medium score (40-69): muted tan
 //   Analyzed & low score (<40): soft peach
-//   Not yet analyzed: soft sky blue (inviting action)
+//   Not yet analyzed: warm grey with slight blue tint
 const PIN_COLORS = {
   high: '#E8654A',      // warm coral - high score
   medium: '#C4956A',    // muted tan - medium score
   low: '#E8B4A0',       // soft peach - low score
-  unanalyzed: '#7CB9D8', // soft sky blue - not yet analyzed
+  unanalyzed: '#9CA3AF', // warm grey - not yet analyzed
 };
 
 function getPinColor(score: number | null): string {

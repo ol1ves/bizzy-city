@@ -57,7 +57,7 @@ export default function WelcomeModal({ open, onClose }: WelcomeModalProps) {
           {/* Content */}
           <div className="px-6 py-8">
             <h2 className="text-2xl font-bold text-neutral-900 mb-3">
-              Welcome to BusiCity
+              Welcome to BizzyCity
             </h2>
             
             <p className="text-neutral-600 leading-relaxed mb-6">

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { Map, AdvancedMarker, InfoWindow } from '@vis.gl/react-google-maps';
+import { Map, AdvancedMarker, InfoWindow, useMap } from '@vis.gl/react-google-maps';
 import type { Property } from '@/lib/types';
 import { MAP_DEFAULT_CENTER, MAP_DEFAULT_ZOOM } from '@/constants';
 import PropertyPin from './PropertyPin';
@@ -12,7 +12,11 @@ interface PropertyMapProps {
   onSelectProperty: (property: Property) => void;
 }
 
-export default function PropertyMap({ properties, onSelectProperty }: PropertyMapProps) {
+function MapMarkers({
+  properties,
+  onSelectProperty,
+}: PropertyMapProps) {
+  const map = useMap();
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
 
@@ -29,21 +33,11 @@ export default function PropertyMap({ properties, onSelectProperty }: PropertyMa
     [activeId, onSelectProperty]
   );
 
+  // Don't render markers until the map is ready
+  if (!map) return null;
+
   return (
-    <Map
-      defaultCenter={MAP_DEFAULT_CENTER}
-      defaultZoom={MAP_DEFAULT_ZOOM}
-      mapId={process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID || undefined}
-      gestureHandling="greedy"
-      disableDefaultUI={false}
-      zoomControl={true}
-      streetViewControl={true}
-      mapTypeControl={false}
-      fullscreenControl={false}
-      clickableIcons={false}
-      className="h-full w-full"
-      onClick={() => setActiveId(null)}
-    >
+    <>
       {properties.map((property) => (
         <AdvancedMarker
           key={property.id}
@@ -75,6 +69,26 @@ export default function PropertyMap({ properties, onSelectProperty }: PropertyMa
           />
         </InfoWindow>
       )}
+    </>
+  );
+}
+
+export default function PropertyMap({ properties, onSelectProperty }: PropertyMapProps) {
+  return (
+    <Map
+      defaultCenter={MAP_DEFAULT_CENTER}
+      defaultZoom={MAP_DEFAULT_ZOOM}
+      mapId={process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID || undefined}
+      gestureHandling="greedy"
+      disableDefaultUI={false}
+      zoomControl={true}
+      streetViewControl={true}
+      mapTypeControl={false}
+      fullscreenControl={false}
+      clickableIcons={false}
+      className="h-full w-full"
+    >
+      <MapMarkers properties={properties} onSelectProperty={onSelectProperty} />
     </Map>
   );
 }

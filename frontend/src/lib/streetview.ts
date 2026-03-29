@@ -1,5 +1,11 @@
 const STREET_VIEW_BASE = 'https://maps.googleapis.com/maps/api/streetview';
 
+/** Headings (degrees) for four views around the location. */
+export const STREET_VIEW_HEADINGS = [0, 90, 180, 270] as const;
+
+/** Labels aligned with `STREET_VIEW_HEADINGS` indices. */
+export const STREET_VIEW_CARDINAL_LABELS = ['North', 'East', 'South', 'West'] as const;
+
 export function getStreetViewUrl(
   lat: number,
   lng: number,
@@ -22,10 +28,13 @@ export function getStreetViewUrl(
   return `${STREET_VIEW_BASE}?${params}`;
 }
 
+/** First `count` Street View URLs using distinct headings from `STREET_VIEW_HEADINGS`. */
+export function getStreetViewPaddingUrls(lat: number, lng: number, count: number): string[] {
+  return STREET_VIEW_HEADINGS.slice(0, count).map((heading) =>
+    getStreetViewUrl(lat, lng, { heading })
+  );
+}
+
 export function getStreetViewGallery(lat: number, lng: number): string[] {
-  return [
-    getStreetViewUrl(lat, lng, { heading: 0 }),
-    getStreetViewUrl(lat, lng, { heading: 120 }),
-    getStreetViewUrl(lat, lng, { heading: 240 }),
-  ];
+  return getStreetViewPaddingUrls(lat, lng, STREET_VIEW_HEADINGS.length);
 }

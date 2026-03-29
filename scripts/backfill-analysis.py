@@ -3,7 +3,7 @@ backfill-analysis.py
 ────────────────────
 Back-populate analysis columns for properties in Supabase.
 
-Supports three analysis types: restaurant, retail, foot_traffic.
+Supports four analysis types: restaurant, retail, foot_traffic, ml.
 Only processes properties where the relevant column is NULL or empty,
 unless --force is passed.
 
@@ -14,9 +14,10 @@ for the ML pipeline, writing all four columns in a single PATCH per property.
 calls). Results are stored in properties.ml_predictions.
 
 Usage:
-    python backfill-analysis.py                            # run all three (1 property, confirmation prompt)
+    python backfill-analysis.py                            # run all four (1 property, confirmation prompt)
+    python backfill-analysis.py --property-id <uuid>      # target one specific property
     python backfill-analysis.py --types restaurant         # restaurant only
-    python backfill-analysis.py --types retail foot_traffic
+    python backfill-analysis.py --types retail foot_traffic ml
     python backfill-analysis.py --force                    # re-analyze everything
     python backfill-analysis.py --dry-run                  # simulate with stub data, no APIs called
     python backfill-analysis.py --full-scan                # all analyses + JSONB + ML predictions
@@ -66,7 +67,7 @@ from ml_interface import (
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_KEY")
 
-ALL_TYPES = ["restaurant", "retail", "foot_traffic"]
+ALL_TYPES = ["restaurant", "retail", "foot_traffic", "ml"]
 
 ANALYSIS_MAP = {
     "restaurant": {
@@ -207,6 +208,11 @@ _API_COSTS = {
         "serp_min": 0,
         "serp_max": 0,
     },
+    "ml": {
+        "google_per_prop": 0,
+        "serp_min": 0,
+        "serp_max": 0,
+    },
     "full_scan": {
         "Google Places (restaurant)": f"{len(RESTAURANT_CATEGORIES)} searchNearby",
         "Google Places (retail)": f"{len(RETAIL_CATEGORIES)} searchNearby",
@@ -332,10 +338,12 @@ def _apply_limit(properties: list, limit: int) -> list:
     return properties
 
 
-def fetch_properties(column: str, force: bool) -> list:
+def fetch_properties(column: str, force: bool, property_id: str | None = None) -> list:
     params = {"select": f"id,address,latitude,longitude,{column}"}
     if not force:
         params["or"] = f"({column}.is.null,{column}.eq.)"
+    if property_id:
+        params["id"] = f"eq.{property_id}"
 
     resp = requests.get(
         f"{SUPABASE_URL}/rest/v1/properties", headers=HEADERS, params=params
@@ -350,7 +358,8 @@ def fetch_properties(column: str, force: bool) -> list:
 
 
 def run_analysis(analysis_type: str, force: bool, dry_run: bool = False,
-                  limit: int = 1, auto_approve: bool = False):
+                  limit: int = 1, auto_approve: bool = False,
+                  property_id: str | None = None):
     cfg = ANALYSIS_MAP[analysis_type]
     column = cfg["column"]
     analyze = cfg["fn"]
@@ -371,7 +380,7 @@ def run_analysis(analysis_type: str, force: bool, dry_run: bool = False,
         print(f"[{analysis_type}] [DRY-RUN] Done: {len(properties)}/{len(properties)} (simulated)")
         return
 
-    properties = fetch_properties(column, force)
+    properties = fetch_properties(column, force, property_id=property_id)
     properties = _apply_limit(properties, limit)
 
     needs_api = _preflight_summary("types", properties, types=[analysis_type])
@@ -413,7 +422,7 @@ def run_analysis(analysis_type: str, force: bool, dry_run: bool = False,
     print(f"[{analysis_type}] Done: {success}/{len(properties)} succeeded")
 
 
-def fetch_properties_for_scan(force: bool) -> list:
+def fetch_properties_for_scan(force: bool, property_id: str | None = None) -> list:
     """
     Fetch properties for full scan. When not --force, returns ALL properties
     so we can check each column individually for lazy updates.
@@ -423,6 +432,8 @@ def fetch_properties_for_scan(force: bool) -> list:
                   "neighborhood_scan,restaurant_analysis,retail_analysis,"
                   "foot_traffic_analysis,ml_predictions",
     }
+    if property_id:
+        params["id"] = f"eq.{property_id}"
 
     resp = requests.get(
         f"{SUPABASE_URL}/rest/v1/properties", headers=HEADERS, params=params
@@ -494,7 +505,8 @@ def _run_ml_predict(property_row: dict, scan_json: list[dict]) -> list[dict] | N
 
 
 def run_predict(force: bool, dry_run: bool = False,
-                limit: int = 1, auto_approve: bool = False):
+                limit: int = 1, auto_approve: bool = False,
+                property_id: str | None = None):
     """
     Run ML predictions from cached neighborhood_scan JSONB. Zero API calls.
     Writes results to properties.ml_predictions.
@@ -511,6 +523,8 @@ def run_predict(force: bool, dry_run: bool = False,
     params = {"select": "id,address,latitude,longitude,zip_code,neighborhood_scan,ml_predictions"}
     if not force:
         params["neighborhood_scan"] = "not.is.null"
+    if property_id:
+        params["id"] = f"eq.{property_id}"
 
     resp = requests.get(
         f"{SUPABASE_URL}/rest/v1/properties", headers=HEADERS, params=params
@@ -581,7 +595,8 @@ def _needs_work(p: dict, force: bool) -> dict:
 
 
 def run_full_scan(force: bool, dry_run: bool = False,
-                  limit: int = 1, auto_approve: bool = False):
+                  limit: int = 1, auto_approve: bool = False,
+                  property_id: str | None = None):
     """Run all three analyses + JSONB assembly + ML predictions per property."""
     if dry_run:
         properties = _apply_limit(_DRY_RUN_PROPERTIES, limit)
@@ -592,7 +607,7 @@ def run_full_scan(force: bool, dry_run: bool = False,
         print(f"[full-scan] [DRY-RUN] Done: {len(properties)}/{len(properties)} (simulated)")
         return
 
-    all_properties = fetch_properties_for_scan(force)
+    all_properties = fetch_properties_for_scan(force, property_id=property_id)
     all_properties = _apply_limit(all_properties, limit)
 
     # Filter to properties that actually need at least one update
@@ -739,7 +754,8 @@ def run_full_scan(force: bool, dry_run: bool = False,
 
 
 def run_rescore(force: bool, dry_run: bool = False,
-                limit: int = 1, auto_approve: bool = False):
+                limit: int = 1, auto_approve: bool = False,
+                property_id: str | None = None):
     """
     Re-run scoring formulas against cached neighborhood_scan JSONB, no API calls.
 
@@ -759,6 +775,8 @@ def run_rescore(force: bool, dry_run: bool = False,
     params = {"select": "id,address,latitude,longitude,neighborhood_scan"}
     if not force:
         params["neighborhood_scan"] = "not.is.null"
+    if property_id:
+        params["id"] = f"eq.{property_id}"
 
     resp = requests.get(
         f"{SUPABASE_URL}/rest/v1/properties", headers=HEADERS, params=params
@@ -874,6 +892,11 @@ def main():
         help="Max properties to process (default: 1). Use --limit 0 for all.",
     )
     parser.add_argument(
+        "--property-id",
+        type=str,
+        help="Backfill only this property id (UUID)",
+    )
+    parser.add_argument(
         "-y", "--yes",
         action="store_true",
         help="Skip confirmation prompt (use for scripted runs)",
@@ -902,7 +925,7 @@ def main():
     if not args.dry_run:
         _check_db_connection()
 
-    common = dict(limit=args.limit, auto_approve=args.yes)
+    common = dict(limit=args.limit, auto_approve=args.yes, property_id=args.property_id)
 
     if args.full_scan:
         run_full_scan(args.force, dry_run=args.dry_run, **common)
@@ -912,7 +935,10 @@ def main():
         run_predict(args.force, dry_run=args.dry_run, **common)
     else:
         for t in args.types:
-            run_analysis(t, args.force, dry_run=args.dry_run, **common)
+            if t == "ml":
+                run_predict(args.force, dry_run=args.dry_run, **common)
+            else:
+                run_analysis(t, args.force, dry_run=args.dry_run, **common)
 
     if args.dry_run:
         print("\nDry run complete — no APIs were called and no data was written.")

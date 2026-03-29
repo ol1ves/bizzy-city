@@ -43,7 +43,10 @@ class NearbyBusiness:
     """A single existing business found near the property."""
     place_id: str
     name: str
+    address: str
+    zip_code: str
     category: str                        # Google Places type
+    survivability_category: str               # mapped historical bucket, e.g. "full_service_restaurant"
     rating: Optional[float] = None
     review_count: int = 0
     lat: Optional[float] = None
@@ -60,7 +63,6 @@ class CategoryScan:
     """
     category: str                        # Google Places type, e.g. "italian_restaurant"
     survival_category: str               # mapped historical bucket, e.g. "full_service_restaurant"
-    historical_survival_rate: float      # 0-1, from the static dataset
     count: int = 0                       # how many exist nearby
     avg_rating: Optional[float] = None
     top_rating: Optional[float] = None

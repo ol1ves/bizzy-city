@@ -86,7 +86,7 @@ function LoadingSkeleton() {
   );
 }
 
-function Placeholder() {
+function Placeholder({ onGenerate, generating }: { onGenerate: () => void; generating: boolean }) {
   return (
     <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50/50 p-6 text-center">
       <div className="text-3xl mb-3">🤖</div>
@@ -94,13 +94,12 @@ function Placeholder() {
         Recommendations for this property haven&apos;t been generated yet.
       </p>
       <button
-        disabled
-        className="mt-4 w-full rounded-lg bg-gray-200 px-4 py-2.5 text-sm font-semibold text-gray-400 cursor-not-allowed"
-        title="Coming soon — backend not yet available"
+        onClick={onGenerate}
+        disabled={generating}
+        className="mt-4 w-full rounded-lg bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
       >
-        Generate Recommendations
+        {generating ? 'Generating...' : 'Generate Recommendations'}
       </button>
-      <p className="mt-2 text-[11px] text-gray-400">Coming soon</p>
       <p className="mt-3 text-xs text-gray-400 leading-relaxed">
         Our AI analyzes neighborhood demand, competition gaps, and foot traffic
         to suggest the best business types for this location.
@@ -109,8 +108,36 @@ function Placeholder() {
   );
 }
 
+function PartialData({ missingAnalyses }: { missingAnalyses: string[] }) {
+  const labels: Record<string, string> = {
+    restaurant_analysis: 'Restaurant analysis',
+    retail_analysis: 'Retail analysis',
+    foot_traffic_analysis: 'Foot traffic analysis',
+  };
+
+  return (
+    <div className="rounded-xl border border-dashed border-amber-200 bg-amber-50/50 p-6 text-center">
+      <div className="text-3xl mb-3">📊</div>
+      <p className="text-sm font-medium text-gray-700">
+        Analysis data is still being collected for this property.
+      </p>
+      <div className="mt-3 space-y-1">
+        {missingAnalyses.map((key) => (
+          <p key={key} className="text-xs text-amber-700">
+            &#x2022; {labels[key] ?? key} — pending
+          </p>
+        ))}
+      </div>
+      <p className="mt-3 text-xs text-gray-400 leading-relaxed">
+        Recommendations will be available once all analyses are complete.
+      </p>
+    </div>
+  );
+}
+
 export default function RecommendationsSection({ propertyId }: RecommendationsSectionProps) {
-  const { recommendations, loading, error } = useRecommendations(propertyId);
+  const { recommendations, loading, error, partial, missingAnalyses, refetch } =
+    useRecommendations(propertyId);
 
   return (
     <div className="px-5 py-4 border-t border-gray-100">
@@ -125,19 +152,25 @@ export default function RecommendationsSection({ propertyId }: RecommendationsSe
           Failed to load recommendations.{' '}
           <button
             className="underline hover:text-red-700"
-            onClick={() => window.location.reload()}
+            onClick={refetch}
           >
             Retry
           </button>
         </p>
       )}
 
-      {!loading && !error && recommendations.length === 0 && <Placeholder />}
+      {!loading && !error && partial && (
+        <PartialData missingAnalyses={missingAnalyses} />
+      )}
+
+      {!loading && !error && !partial && recommendations.length === 0 && (
+        <Placeholder onGenerate={refetch} generating={loading} />
+      )}
 
       {!loading && !error && recommendations.length > 0 && (
         <div className="space-y-3">
           {recommendations.map((rec) => (
-            <RecommendationCard key={rec.id} rec={rec} />
+            <RecommendationCard key={rec.id ?? `${rec.rank}-${rec.business_type}`} rec={rec} />
           ))}
         </div>
       )}

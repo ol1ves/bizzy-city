@@ -8,4 +8,8 @@ dependencies = [
     "geopandas",
     "shapely",
     "pandas",
+    "fastapi[standard]",
+    "uvicorn[standard]",
+    "openai",
+    "supabase",
 ]

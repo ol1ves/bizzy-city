@@ -51,13 +51,26 @@ def main():
     parser = argparse.ArgumentParser(
         description="Generate business-type recommendations for a property."
     )
-    parser.add_argument("property_id", help="UUID of the property to analyze")
+    parser.add_argument(
+        "property_id", nargs="?", help="UUID of a single property to analyze"
+    )
+    parser.add_argument(
+        "--all",
+        action="store_true",
+        dest="all_properties",
+        help="Re-run recommendations for every property in the DB (overwrites existing)",
+    )
     parser.add_argument(
         "--dry-run",
         action="store_true",
         help="Run the LLM pipeline but do not write results to the database",
     )
     args = parser.parse_args()
+
+    if args.all_properties and args.property_id:
+        raise SystemExit("Provide either a property_id or --all, not both.")
+    if not args.all_properties and not args.property_id:
+        raise SystemExit("Provide a property_id or pass --all.")
 
     supabase_url = os.getenv("SUPABASE_URL")
     supabase_key = os.getenv("SUPABASE_SERVICE_KEY")
@@ -70,17 +83,46 @@ def main():
     supabase = create_client(supabase_url, supabase_key)
     openai = OpenAI()
 
-    recommendations = generate_recommendations(
-        property_id=args.property_id,
-        supabase_client=supabase,
-        openai_client=openai,
-        dry_run=args.dry_run,
-    )
+    if args.all_properties:
+        result = supabase.table("properties").select("id, address").execute()
+        properties = result.data
+        total = len(properties)
+        succeeded = 0
+        skipped = 0
 
-    _print_table(recommendations)
+        print(f"Found {total} properties. Running recommendations for all...\n")
 
-    if args.dry_run:
-        print("\nDry run — results were NOT saved to the database.")
+        for idx, prop in enumerate(properties, 1):
+            label = prop.get("address") or prop["id"]
+            print(f"[{idx}/{total}] {label}")
+            try:
+                recs = generate_recommendations(
+                    property_id=prop["id"],
+                    supabase_client=supabase,
+                    openai_client=openai,
+                    dry_run=args.dry_run,
+                )
+                _print_table(recs)
+                succeeded += 1
+            except ValueError as e:
+                print(f"  SKIPPED: {e}")
+                skipped += 1
+
+        print(f"\nDone. {succeeded} succeeded, {skipped} skipped out of {total}.")
+        if args.dry_run:
+            print("Dry run — results were NOT saved to the database.")
+    else:
+        recommendations = generate_recommendations(
+            property_id=args.property_id,
+            supabase_client=supabase,
+            openai_client=openai,
+            dry_run=args.dry_run,
+        )
+
+        _print_table(recommendations)
+
+        if args.dry_run:
+            print("\nDry run — results were NOT saved to the database.")
 
 
 if __name__ == "__main__":

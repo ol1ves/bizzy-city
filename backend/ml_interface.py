@@ -25,7 +25,7 @@ import math
 import os
 from dataclasses import dataclass, field
 from typing import Optional
-
+import numpy as np
 import requests
 from dotenv import load_dotenv
 
@@ -469,8 +469,13 @@ def predict(ml_input: PropertyMLInput) -> PropertyMLOutput:
 
         base_rate_5yr = profiles[survival_cat]['rate'][4]
         survival_prob = min(base_rate_5yr * (score / 50.0), 1.0)
-        capture_rate = min(max(feats['traffic_efficiency'] / 10.0, 0.0), 1.0)
-        annual_revenue = feats['spend_capacity'] * 365 * capture_rate * (score / 100.0)
+
+
+        friction = feats['industry_friction']
+        capture_rate = (np.log1p(avg_traffic) * 0.015) / (friction ** 2)
+        capture_rate = min(max(capture_rate, 0.001), 0.10)
+        captured_daily_traffic = avg_traffic * capture_rate
+        annual_revenue = captured_daily_traffic * feats['spend_capacity'] * 365 * (score / 100.0)
 
         predictions.append(CategoryPrediction(
             category=cat_scan.category,

@@ -24,23 +24,23 @@ export default function PropertyInfo({ property }: PropertyInfoProps) {
 
   return (
     <div className="px-5 py-4">
-      <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-3">
+      <h3 className="text-xs font-bold uppercase tracking-wider text-neutral-400 mb-3">
         Property Details
       </h3>
 
       <div className="grid grid-cols-2 gap-3">
         {fields.map((f) => (
           <div key={f.label}>
-            <p className="text-xs text-gray-400">{f.label}</p>
-            <p className="text-sm font-medium text-gray-900">{f.value}</p>
+            <p className="text-xs text-neutral-500">{f.label}</p>
+            <p className="text-sm font-semibold text-neutral-900">{f.value}</p>
           </div>
         ))}
       </div>
 
       {property.description && (
         <div className="mt-4">
-          <p className="text-xs text-gray-400">Building Description</p>
-          <p className="mt-1 text-sm leading-relaxed text-gray-700">{property.description}</p>
+          <p className="text-xs text-neutral-500">Building Description</p>
+          <p className="mt-1 text-sm leading-relaxed text-neutral-700">{property.description}</p>
         </div>
       )}
     </div>

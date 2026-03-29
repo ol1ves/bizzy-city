@@ -23,11 +23,11 @@ export default function PropertyDetailPanel({
           <PropertyGallery propertyId={property.id} lat={property.latitude} lng={property.longitude} />
 
           {/* Header */}
-          <div className="px-5 pt-4 pb-3 border-b border-gray-100">
-            <h2 className="text-xl font-bold text-gray-900 leading-tight">
+          <div className="px-5 pt-4 pb-3 border-b border-neutral-200">
+            <h2 className="text-xl font-bold text-neutral-900 leading-tight">
               {property.address}
             </h2>
-            <div className="mt-1 flex flex-wrap items-center gap-1.5 text-sm text-gray-500">
+            <div className="mt-1 flex flex-wrap items-center gap-1.5 text-sm text-neutral-500">
               <span>{property.city}, {property.state_code}</span>
               {property.zip_code && <span>·</span>}
               {property.zip_code && <span>{property.zip_code}</span>}
@@ -37,7 +37,7 @@ export default function PropertyDetailPanel({
                 href={property.crexi_url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="mt-2 inline-flex items-center text-xs font-medium text-brand-600 hover:text-brand-700 transition-colors"
+                className="mt-2 inline-flex items-center text-xs font-medium text-accent-500 hover:text-accent-600 transition-colors"
               >
                 View on Crexi ↗
               </a>

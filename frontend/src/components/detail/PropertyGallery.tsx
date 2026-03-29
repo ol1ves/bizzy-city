@@ -61,7 +61,7 @@ export default function PropertyGallery({ propertyId, lat, lng }: PropertyGaller
     return (
       <div>
         <Skeleton className="w-full h-[280px]" />
-        <div className="flex gap-1 p-1 bg-gray-50">
+        <div className="flex gap-1 p-1 bg-neutral-50">
           {[0, 1, 2, 3].map((i) => (
             <Skeleton key={i} className="flex-1 h-16 rounded" />
           ))}
@@ -80,7 +80,7 @@ export default function PropertyGallery({ propertyId, lat, lng }: PropertyGaller
 
   return (
     <div>
-      <div className="relative w-full h-[280px] bg-gray-100 overflow-hidden">
+      <div className="relative w-full h-[280px] bg-neutral-200 overflow-hidden">
         <img
           src={active.url}
           alt={heroAlt}
@@ -93,7 +93,7 @@ export default function PropertyGallery({ propertyId, lat, lng }: PropertyGaller
         )}
       </div>
 
-      <div className="flex gap-1 p-1 bg-gray-50">
+      <div className="flex gap-1 p-1 bg-neutral-50">
         {slots.map((slot, i) => {
           const alt =
             slot.source === 'storage'
@@ -106,7 +106,7 @@ export default function PropertyGallery({ propertyId, lat, lng }: PropertyGaller
               onClick={() => setHeroIndex(i)}
               className={`relative flex-1 h-16 overflow-hidden rounded transition-all ${
                 safeIndex === i
-                  ? 'ring-2 ring-brand-500 ring-offset-1'
+                  ? 'ring-2 ring-accent-500 ring-offset-1'
                   : 'opacity-70 hover:opacity-100'
               }`}
             >

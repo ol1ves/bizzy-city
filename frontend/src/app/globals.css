@@ -1,25 +1,67 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+
 @import "tailwindcss";
 
 @theme inline {
+  --font-sans: 'Plus Jakarta Sans', system-ui, sans-serif;
+  
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-
-  --color-brand-50: #EFF6FF;
-  --color-brand-100: #DBEAFE;
-  --color-brand-500: #3B82F6;
-  --color-brand-600: #2563EB;
-  --color-brand-700: #1D4ED8;
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--accent);
+  
+  /* Warm neutral palette */
+  --color-neutral-0: #FFFFFF;
+  --color-neutral-50: #FAFAF8;
+  --color-neutral-100: #F5F3F0;
+  --color-neutral-200: #E8E4E0;
+  --color-neutral-300: #DDD7D0;
+  --color-neutral-400: #C4BAB0;
+  --color-neutral-500: #8B8680;
+  --color-neutral-600: #5F5A54;
+  --color-neutral-700: #3E3935;
+  --color-neutral-900: #1A1815;
+  
+  /* Warm accent - light orange used as accent only */
+  --color-accent-50: #FEFBF7;
+  --color-accent-100: #FEF4ED;
+  --color-accent-200: #FCE8DB;
+  --color-accent-300: #F5D5C4;
+  --color-accent-400: #FB923C;
+  --color-accent-500: #F97316;
+  --color-accent-600: #EA6534;
+  --color-accent-700: #C84C1D;
+  
+  /* Success/semantic colors */
+  --color-success-50: #F0FDF4;
+  --color-success-500: #22C55E;
+  --color-success-600: #16A34A;
+  
+  /* Alert/error colors */
+  --color-alert-50: #FEF2F2;
+  --color-alert-500: #EF4444;
+  --color-alert-600: #DC2626;
 }
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #FFFFFF;
+  --foreground: #1A1815;
+  --border: #E8E4E0;
+  --input: #F5F3F0;
+  --accent: #FB923C;
 }
 
 html, body {
   height: 100%;
   margin: 0;
   overflow: hidden;
+}
+
+body {
+  font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+  background-color: var(--background);
+  color: var(--foreground);
 }
 
 @keyframes skeleton-pulse {

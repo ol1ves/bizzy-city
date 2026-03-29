@@ -60,7 +60,7 @@ export default function SlidePanel({ open, onClose, children }: SlidePanelProps)
       >
         <button
           onClick={onClose}
-          className="absolute top-3 right-3 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-white/80 text-gray-600 shadow backdrop-blur hover:bg-white hover:text-gray-900 transition-colors"
+          className="absolute top-3 right-3 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-white/80 text-neutral-600 shadow backdrop-blur hover:bg-white hover:text-neutral-900 transition-colors"
           aria-label="Close panel"
         >
           ✕

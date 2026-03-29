@@ -9,6 +9,10 @@ export const metadata: Metadata = {
   title: 'BizzyCity — Find the right business for any space',
   description:
     'AI-powered recommendations for what business to open at commercial properties in Manhattan.',
+  icons: {
+    icon: '/logo.png',
+    apple: '/logo.png',
+  },
 };
 
 export default function RootLayout({

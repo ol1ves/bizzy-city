@@ -13,6 +13,7 @@ export default function Header() {
           width={36}
           height={44}
           className="object-contain"
+          style={{ width: 'auto', height: 'auto' }}
           priority
         />
         

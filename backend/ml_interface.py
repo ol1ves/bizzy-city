@@ -450,6 +450,14 @@ def predict(ml_input: PropertyMLInput) -> PropertyMLOutput:
     traffic_dict = _foot_traffic_to_dict(ml_input.property_foot_traffic)
     avg_traffic = _calc_avg_traffic(traffic_dict)
     profiles = _get_profiles()
+    INDUSTRY_DIVISORS = {
+        'accommodation_and_food_services': 2000,
+        'retail_trade': 1500,
+        'real_estate_and_rental_and_leasing': 500,
+        'other_services': 3000,
+        'health_care_and_social_assistance': 1000,  # High per-visit insurance cost
+        'arts_entertainment_and_recreation': 2200  # Ticket-based pricing
+    }
 
     predictions: list[CategoryPrediction] = []
     for cat_scan in ml_input.categories:
@@ -467,22 +475,33 @@ def predict(ml_input: PropertyMLInput) -> PropertyMLOutput:
         else:
             score = _formula_score(survival_cat, feats, competitors)
 
-        base_rate_5yr = profiles[survival_cat]['rate'][4]
-        survival_prob = min(base_rate_5yr * (score / 50.0), 1.0)
+            # 2. Survival probability (linked to ML score)
+            base_rate_5yr = profiles[survival_cat]['rate'][4]
+            survival_prob = min(base_rate_5yr * (score / 50.0), 1.0)
 
+            # 3. Capture Rate Logic (Standardizing the 9.0 efficiency into ~2-5%)
+            friction = feats['industry_friction']
+            capture_rate = (np.log1p(avg_traffic) * 0.012) / (friction ** 1.5)
+            capture_rate = min(max(capture_rate, 0.005), 0.12)
 
-        friction = feats['industry_friction']
-        capture_rate = (np.log1p(avg_traffic) * 0.015) / (friction ** 2)
-        capture_rate = min(max(capture_rate, 0.001), 0.10)
-        captured_daily_traffic = avg_traffic * capture_rate
-        annual_revenue = captured_daily_traffic * feats['spend_capacity'] * 365 * (score / 100.0)
+            # 4. Headcount: Who actually walks in?
+            captured_daily_traffic = avg_traffic * capture_rate
 
-        predictions.append(CategoryPrediction(
-            category=cat_scan.category,
-            survival_probability=round(survival_prob, 4),
-            estimated_capture_rate=round(capture_rate, 4),
-            estimated_annual_revenue=round(annual_revenue, 2),
-        ))
+            # 5. Dynamic Average Transaction Value (ATV)
+            # Get the divisor for this specific category, defaulting to 2500 if not found
+            divisor = INDUSTRY_DIVISORS.get(survival_cat, 2500)
+            avg_transaction_value = feats['income_proxy'] / divisor
+
+            # 6. Annual Revenue Calculation
+            # (Captured Daily Traffic) * (Spend per Visit) * (365 Days) * (Success Modifier)
+            annual_revenue = captured_daily_traffic * avg_transaction_value * 365 * (score / 100.0)
+
+            predictions.append(CategoryPrediction(
+                category=cat_scan.category,
+                survival_probability=round(survival_prob, 4),
+                estimated_capture_rate=round(capture_rate, 4),
+                estimated_annual_revenue=round(annual_revenue, 2),
+            ))
 
     predictions.sort(key=lambda p: p.survival_probability, reverse=True)
     return PropertyMLOutput(property_id=ml_input.property_id, predictions=predictions)

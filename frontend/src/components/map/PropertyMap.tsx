@@ -38,18 +38,21 @@ function MapMarkers({
 
   return (
     <>
-      {properties.map((property) => (
-        <AdvancedMarker
-          key={property.id}
-          position={{ lat: property.latitude, lng: property.longitude }}
-          onClick={() => handleMarkerClick(property)}
-          onMouseEnter={() => setHoveredId(property.id)}
-          onMouseLeave={() => setHoveredId(null)}
-          zIndex={hoveredId === property.id || activeId === property.id ? 10 : 1}
-        >
-          <PropertyPin />
-        </AdvancedMarker>
-      ))}
+      {properties.map((property) => {
+        const isHovered = hoveredId === property.id || activeId === property.id;
+        return (
+          <AdvancedMarker
+            key={property.id}
+            position={{ lat: property.latitude, lng: property.longitude }}
+            onClick={() => handleMarkerClick(property)}
+            onMouseEnter={() => setHoveredId(property.id)}
+            onMouseLeave={() => setHoveredId(null)}
+            zIndex={isHovered ? 10 : 1}
+          >
+            <PropertyPin score={property.top_rec_score} isHovered={isHovered} />
+          </AdvancedMarker>
+        );
+      })}
 
       {activeProperty && (
         <InfoWindow

@@ -106,6 +106,8 @@ def main():
                 succeeded += 1
             except ValueError as e:
                 print(f"  SKIPPED: {e}")
+                if "ml_predictions" in str(e):
+                    print("  Hint: run the ML backfill first so properties.ml_predictions is populated.")
                 skipped += 1
 
         print(f"\nDone. {succeeded} succeeded, {skipped} skipped out of {total}.")

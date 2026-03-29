@@ -25,6 +25,28 @@ You have three data sources below. Before analyzing them, understand how they we
 - **Share**: What percentage of all nearby establishments in that scan belong to this category. Low share + high score = underserved demand (strong opportunity). High share = the market may be saturated, though high share can also indicate the area is a destination hub for that category.
 - **Pain**: Competitor weakness based on review sentiment analysis. HIGH = competitors have significant complaints, long wait times, or poor quality — a new entrant with better execution could capture share. MED = moderate friction. LOW = competitors are generally well-reviewed, so a new entrant needs a differentiated concept to win, not just better execution.
 
+### How to Read the ML Financial Projections
+
+You also have ML-generated financial projections for each category. These come from a trained model that estimates what would happen if a business in that category opened at this property. **Understand how these numbers were computed — this is critical to using them correctly.**
+
+**What the model knows:** Zip-code-level median household income, pedestrian foot traffic volume at the property, the broad industry category (see below), the number of nearby competitors in that specific Google Places category, and the age mix of those competitors (young vs. established).
+
+**What the model does NOT know:** The property's square footage. The model estimates revenue assuming an average-sized business for the industry. A 600 sqft space will capture significantly less revenue than a 3,000 sqft space in the same category — you MUST adjust for this. As a rough heuristic: food service averages ~1,200 sqft, retail averages ~1,500 sqft, personal services average ~800 sqft. If the property is 2× the category average, revenue potential is roughly 1.5-1.8× the estimate (not linear — diminishing returns from seating/display capacity). If the property is 0.5× the average, revenue potential is roughly 0.6-0.7× the estimate (can't seat/serve as many).
+
+**Broad category grouping:** The model uses 6 BLS industry buckets, not individual Google Places types. All restaurants, cafes, bars, and bakeries share the bucket `accommodation_and_food_services`. All clothing stores, grocery stores, electronics stores share `retail_trade`. Salons, spas, and barbers share `other_services`. This means:
+- Two categories in the same bucket (e.g. "italian_restaurant" and "coffee_shop") will have the **same base survival rate and capture rate**. The only difference in their projections comes from their **different competitor counts and competitor age mixes**.
+- Do NOT treat small differences between same-bucket categories as meaningful signals. A 1-2% survival difference between two restaurant types is just noise from competition counts.
+- DO treat large differences between categories in DIFFERENT buckets as meaningful (e.g., `retail_trade` vs `other_services` have structurally different survival profiles and friction).
+
+**Column definitions:**
+
+- **survival_probability**: Estimated probability (0.0-1.0) that this business type survives 5 years at this location. Derived from BLS industry base rates adjusted by the ML model's location-specific score. A survival probability above 0.60 is strong; 0.45-0.60 is moderate; below 0.45 is high-risk.
+- **estimated_annual_revenue**: Projected yearly gross revenue in dollars, assuming an **average-sized** business. Computed from: (daily foot traffic × capture rate) × average transaction value × 365 × success modifier. The transaction value is derived from zip-code median income divided by an industry-specific spending divisor. **You must adjust this number for the actual square footage of the property.**
+- **estimated_capture_rate**: The fraction of daily pedestrian traffic the model expects to convert into paying customers. Driven by traffic volume and industry friction (how hard it is to get a passerby to walk in). Low-friction categories like healthcare (~0.7 friction) have higher capture rates; high-friction categories like real estate (~2.0 friction) have lower capture rates. Typical range: 1-6%.
+
+### ML Financial Projections
+{ml_predictions}
+
 ### Restaurant Analysis
 {restaurant_analysis}
 
@@ -73,18 +95,44 @@ Apply the same logic but remember the retail scan covers a wider area:
 
 If asking rent is provided, calculate the annual rent (sqft × rent/sqft). Then ask: can each proposed business type realistically generate enough gross revenue to support this rent at typical occupancy cost ratios (8-12% of revenue for food service, 5-10% for retail, 10-15% for personal services)? Concepts that can't clear this bar should be flagged.
 
-### 6. Synthesis: Cross-List Opportunities
+### 6. ML Financial Reality Check
 
-After analyzing restaurants and retail separately, identify the strongest overall opportunities. Look for:
-- **Convergent signals**: A category scores well in its list AND foot traffic aligns AND pain is high AND space fits → strong candidate.
-- **Contrarian bets**: A category doesn't score highest but has HIGH pain at low share — a well-run entrant could dominate an underserved niche.
-- **Disqualified despite high scores**: A category scores well but foot traffic doesn't match, space is wrong, or rent economics don't work → flag it.
+The ML projections give you a data-driven sanity check on each category's financial viability at this specific location. Use them to validate or challenge your qualitative analysis from steps 3-5. Work through these questions for each category you're considering:
+
+**a) Survival probability sanity check:**
+- Does the model's survival estimate align with your qualitative read of the competition? If you identified high pain (weak competitors) but the model shows low survival probability, the discrepancy likely comes from macro factors (industry base rates, neighborhood income tier). Call this out.
+- Categories with survival probability below 0.45 face steep odds regardless of market opportunity. A high restaurant/retail score with low survival probability means "there's demand here, but the economics are brutal." The opportunity is real but the operator needs deep pockets and strong execution.
+
+**b) Revenue plausibility with square footage adjustment:**
+- Take the model's estimated_annual_revenue and adjust it for the property's actual square footage. Use the heuristics from the data description above.
+- Compare the adjusted revenue to the annual rent (if known). Does the business clear the occupancy cost ratio from step 5? If the model's adjusted revenue estimate makes the rent look impossible, that's a strong negative signal even if market demand scores are high.
+- If no rent is provided, use the adjusted revenue to assess whether the concept generates enough to sustain typical Manhattan operating costs.
+
+**c) Capture rate context:**
+- A capture rate above 4% is strong — the model thinks this location has the right traffic-to-conversion dynamics for this industry.
+- A capture rate below 1.5% means even with high foot traffic, very few passersby will convert. This favors destination concepts (people come specifically for you) over impulse/walk-in concepts.
+- Compare capture rates across categories in DIFFERENT industry buckets. If food service shows 3.5% capture but retail shows 1.2%, that tells you the location's traffic pattern converts better for food than retail.
+
+**d) Cross-validate with demand signals:**
+- High demand score + high ML revenue + high survival → strongest possible signal.
+- High demand score + low ML revenue → the demand exists but the economics may not work at this rent/location. Investigate why (low income area? low foot traffic? high friction industry?).
+- Low demand score + high ML revenue → the model sees financial viability from location fundamentals (income, traffic) but the market may be saturated or competitors are strong. Niche differentiation required.
+
+### 7. Synthesis: Cross-List Opportunities
+
+After analyzing restaurants and retail separately and cross-checking against ML financial projections, identify the strongest overall opportunities. Look for:
+- **Convergent signals**: A category scores well in its list AND foot traffic aligns AND pain is high AND space fits AND ML projections show strong survival + viable revenue → strongest candidate.
+- **Contrarian bets**: A category doesn't score highest but has HIGH pain at low share — a well-run entrant could dominate an underserved niche. If the ML model also shows reasonable survival and revenue, this becomes more credible.
+- **Disqualified despite high scores**: A category scores well but foot traffic doesn't match, space is wrong, rent economics don't work, OR the ML model flags low survival probability / insufficient revenue → flag it.
+- **ML-boosted sleepers**: A category with moderate demand scores but the ML model shows unusually high survival probability or revenue potential due to location fundamentals (income tier, low competition density). Worth highlighting even if the demand ranking isn't top-3.
 
 ## Output Format
 
 Produce a structured written analysis organized by business type or theme. For each business type you discuss:
 - State whether it's a strong, moderate, or weak fit
 - Reference specific numbers: its score rank within its list, share percentage, pain level, relevant foot traffic numbers
+- Reference the ML projections: survival probability, sqft-adjusted revenue estimate, and capture rate
+- Note any discrepancies between the demand/opportunity signal and the ML financial projections
 - Explain your reasoning using the dimensions above
 
 Do NOT produce numerical scores. Do NOT produce a ranked list with numbers. Your output should be a thorough written analysis that a second scoring step can use to assign final scores.

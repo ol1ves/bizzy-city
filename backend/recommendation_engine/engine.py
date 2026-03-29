@@ -5,10 +5,51 @@ from pathlib import Path
 from . import config
 
 PROMPTS_DIR = Path(__file__).parent / "prompts"
+DEBUG_LOG_PATH = Path("/Users/oliversantana/Documents/dev/busi-city/.cursor/debug-7ec9cb.log")
+
+
+def _debug_log(run_id: str, hypothesis_id: str, location: str, message: str, data: dict) -> None:
+    payload = {
+        "sessionId": "7ec9cb",
+        "runId": run_id,
+        "hypothesisId": hypothesis_id,
+        "location": location,
+        "message": message,
+        "data": data,
+        "timestamp": int(time.time() * 1000),
+    }
+    with DEBUG_LOG_PATH.open("a", encoding="utf-8") as f:
+        f.write(json.dumps(payload, separators=(",", ":")) + "\n")
 
 
 def _load_prompt(filename: str) -> str:
     return (PROMPTS_DIR / filename).read_text()
+
+
+def _format_ml_predictions(value) -> str:
+    if value is None:
+        return "Not provided"
+
+    parsed = value
+    if isinstance(value, str):
+        raw = value.strip()
+        if not raw:
+            return "Not provided"
+        try:
+            parsed = json.loads(raw)
+        except json.JSONDecodeError:
+            return raw
+
+    if isinstance(parsed, list):
+        if not parsed:
+            return "Not provided"
+        return json.dumps(parsed, separators=(",", ":"), sort_keys=True)
+
+    if isinstance(parsed, dict):
+        return json.dumps(parsed, separators=(",", ":"), sort_keys=True)
+
+    text = str(parsed).strip()
+    return text or "Not provided"
 
 
 def _build_context(property_data: dict) -> dict:
@@ -30,20 +71,54 @@ def _build_context(property_data: dict) -> dict:
         "restaurant_analysis": _val("restaurant_analysis"),
         "retail_analysis": _val("retail_analysis"),
         "foot_traffic_analysis": _val("foot_traffic_analysis"),
+        "ml_predictions": _format_ml_predictions(property_data.get("ml_predictions")),
     }
 
 
 def _run_reasoning(context: dict, openai_client) -> str:
     template = _load_prompt("reasoning.txt")
-    prompt = template.format(**context)
+    try:
+        prompt = template.format(**context)
+        # region agent log
+        _debug_log(
+            run_id="initial",
+            hypothesis_id="H2",
+            location="engine.py:_run_reasoning",
+            message="Reasoning prompt formatted",
+            data={
+                "prompt_len": len(prompt),
+                "ml_predictions_len": len(context.get("ml_predictions", "")),
+            },
+        )
+        # endregion
+    except Exception as exc:
+        # region agent log
+        _debug_log(
+            run_id="initial",
+            hypothesis_id="H2",
+            location="engine.py:_run_reasoning",
+            message="Reasoning prompt format failed",
+            data={"error_type": type(exc).__name__, "error": str(exc)},
+        )
+        # endregion
+        raise
 
     response = openai_client.chat.completions.create(
         model=config.REASONING_MODEL,
-        temperature=config.REASONING_TEMPERATURE,
-        max_tokens=config.REASONING_MAX_TOKENS,
+        max_completion_tokens=config.REASONING_MAX_TOKENS,
         messages=[{"role": "user", "content": prompt}],
     )
-    return response.choices[0].message.content
+    content = response.choices[0].message.content
+    # region agent log
+    _debug_log(
+        run_id="initial",
+        hypothesis_id="H4",
+        location="engine.py:_run_reasoning",
+        message="Reasoning API returned content",
+        data={"content_is_none": content is None, "content_len": len(content or "")},
+    )
+    # endregion
+    return content
 
 
 def _run_scoring(context: dict, reasoning_output: str, openai_client) -> list[dict]:
@@ -81,6 +156,9 @@ def _run_scoring(context: dict, reasoning_output: str, openai_client) -> list[di
             "business_type": bt,
             "score": score,
             "reasoning": reasoning,
+            "survival_probability": item.get("survival_probability"),
+            "estimated_annual_revenue": item.get("estimated_annual_revenue"),
+            "capture_rate": item.get("capture_rate"),
         })
 
     validated.sort(key=lambda x: x["score"], reverse=True)
@@ -99,6 +177,9 @@ def _save_recommendations(property_id: str, recommendations: list[dict], supabas
             "business_type": rec["business_type"],
             "score": rec["score"],
             "reasoning": rec["reasoning"],
+            "survival_probability": rec.get("survival_probability"),
+            "estimated_annual_revenue": rec.get("estimated_annual_revenue"),
+            "capture_rate": rec.get("capture_rate"),
         }
         for i, rec in enumerate(recommendations)
     ]
@@ -113,6 +194,15 @@ def generate_recommendations(
     dry_run: bool = False,
 ) -> list[dict]:
     print(f"Fetching property {property_id}...")
+    # region agent log
+    _debug_log(
+        run_id="initial",
+        hypothesis_id="H1",
+        location="engine.py:generate_recommendations",
+        message="Generate recommendations started",
+        data={"property_id": property_id},
+    )
+    # endregion
     result = (
         supabase_client.table("properties")
         .select("*")
@@ -126,7 +216,12 @@ def generate_recommendations(
 
     missing = [
         col
-        for col in ("restaurant_analysis", "retail_analysis", "foot_traffic_analysis")
+        for col in (
+            "restaurant_analysis",
+            "retail_analysis",
+            "foot_traffic_analysis",
+            "ml_predictions",
+        )
         if not property_data.get(col)
     ]
     if missing:
@@ -136,10 +231,36 @@ def generate_recommendations(
         )
 
     context = _build_context(property_data)
+    # region agent log
+    _debug_log(
+        run_id="initial",
+        hypothesis_id="H3",
+        location="engine.py:generate_recommendations",
+        message="Property context built",
+        data={
+            "has_restaurant_analysis": bool(property_data.get("restaurant_analysis")),
+            "has_retail_analysis": bool(property_data.get("retail_analysis")),
+            "has_foot_traffic_analysis": bool(property_data.get("foot_traffic_analysis")),
+            "has_ml_predictions": bool(property_data.get("ml_predictions")),
+        },
+    )
+    # endregion
 
     print("Running Step 1: Reasoning...")
     t0 = time.time()
-    reasoning_output = _run_reasoning(context, openai_client)
+    try:
+        reasoning_output = _run_reasoning(context, openai_client)
+    except Exception as exc:
+        # region agent log
+        _debug_log(
+            run_id="initial",
+            hypothesis_id="H4",
+            location="engine.py:generate_recommendations",
+            message="Reasoning step failed",
+            data={"error_type": type(exc).__name__, "error": str(exc)},
+        )
+        # endregion
+        raise
     print(f"  Step 1 complete ({time.time() - t0:.1f}s)")
 
     print("Running Step 2: Scoring...")

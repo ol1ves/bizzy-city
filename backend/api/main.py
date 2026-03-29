@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import os
 import sys
+import json
+import time
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -19,10 +21,30 @@ from supabase import create_client, Client as SupabaseClient
 
 from recommendation_engine import generate_recommendations
 
-ANALYSIS_COLUMNS = ("restaurant_analysis", "retail_analysis", "foot_traffic_analysis")
+ANALYSIS_COLUMNS = (
+    "restaurant_analysis",
+    "retail_analysis",
+    "foot_traffic_analysis",
+    "ml_predictions",
+)
 
 _supabase: SupabaseClient | None = None
 _openai: OpenAI | None = None
+DEBUG_LOG_PATH = Path("/Users/oliversantana/Documents/dev/busi-city/.cursor/debug-7ec9cb.log")
+
+
+def _debug_log(run_id: str, hypothesis_id: str, location: str, message: str, data: dict) -> None:
+    payload = {
+        "sessionId": "7ec9cb",
+        "runId": run_id,
+        "hypothesisId": hypothesis_id,
+        "location": location,
+        "message": message,
+        "data": data,
+        "timestamp": int(time.time() * 1000),
+    }
+    with DEBUG_LOG_PATH.open("a", encoding="utf-8") as f:
+        f.write(json.dumps(payload, separators=(",", ":")) + "\n")
 
 
 @asynccontextmanager
@@ -74,7 +96,7 @@ async def get_recommendations(property_id: str):
     # 1. Fetch property
     prop_result = (
         _supabase.table("properties")
-        .select("id, restaurant_analysis, retail_analysis, foot_traffic_analysis")
+        .select("id, restaurant_analysis, retail_analysis, foot_traffic_analysis, ml_predictions")
         .eq("id", property_id)
         .maybe_single()
         .execute()
@@ -117,6 +139,15 @@ async def get_recommendations(property_id: str):
             openai_client=_openai,
         )
     except Exception as exc:
+        # region agent log
+        _debug_log(
+            run_id="initial",
+            hypothesis_id="H5",
+            location="main.py:get_recommendations",
+            message="Endpoint returned recommendation generation error",
+            data={"property_id": property_id, "error_type": type(exc).__name__, "error": str(exc)},
+        )
+        # endregion
         raise HTTPException(
             status_code=500,
             detail=f"Recommendation generation failed: {exc}",

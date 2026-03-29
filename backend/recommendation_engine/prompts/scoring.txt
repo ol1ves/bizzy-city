@@ -20,6 +20,11 @@ You are a commercial real estate advisor producing a final scored recommendation
 ### Foot Traffic Patterns
 {foot_traffic_analysis}
 
+### ML Financial Projections
+{ml_predictions}
+
+**How to interpret ML projections:** These come from a trained model that predicts financial outcomes for each category at this specific location. The model uses zip-code income, foot traffic, industry type, and local competition — but does NOT account for square footage. Revenue estimates assume an average-sized business. You must mentally scale revenue by the property's actual sqft vs. category average (~1,200 sqft for food service, ~1,500 sqft for retail, ~800 sqft for personal services). Multiple categories in the same broad industry bucket (e.g., all restaurant types) share the same base survival rate — differences between them come only from competition counts.
+
 ## Prior Analysis
 
 A detailed reasoning step has already been completed. Here is that analysis:
@@ -32,8 +37,11 @@ Using the reasoning above and the raw market data, produce a final scored list o
 
 Output a JSON object with a single key "recommendations" containing an array of objects. Each object must have:
 - "business_type" (string): A clean, human-readable name in title case with spaces (e.g., "Mexican Restaurant", "Coffee Shop", "Acai Shop"). Do not use snake_case.
-- "score" (integer, 1 to 100): How good a fit this business type is for this property.
-- "reasoning" (string): 2-3 sentences explaining the score. You MUST reference at least two of: the category's rank position in its list, its share percentage, its pain level, a specific foot traffic number, square footage fit, or rent viability.
+- "score" (integer, 1 to 100): How good a fit this business type is for this property. This is the final score after applying the ML Financial Adjustment to the Pillar 1-4 base score.
+- "reasoning" (string): 2-3 sentences explaining the score. You MUST reference at least two of: the category's rank position in its list, its share percentage, its pain level, a specific foot traffic number, square footage fit, or rent viability. You MUST also reference at least one ML projection (survival probability, sqft-adjusted revenue estimate, or capture rate) and explain whether it reinforced or contradicted the demand signal.
+- "survival_probability" (number, 0.0 to 1.0): Copy the ML model's survival_probability for this category. Use null if no ML data is available.
+- "estimated_annual_revenue" (number): The ML model's estimated_annual_revenue AFTER you adjust it for the property's square footage. This is your sqft-adjusted figure, not the raw model output. Use null if no ML data is available.
+- "capture_rate" (number, 0.0 to 1.0): Copy the ML model's estimated_capture_rate for this category. Use null if no ML data is available.
 
 ## Scoring Framework
 
@@ -67,6 +75,25 @@ Can this business physically operate here and afford the rent?
 - Space is marginal or rent is a stretch = 3-7 pts
 - Space is wrong or rent economics don't work = 1-2 pts
 - **Structurally impossible** (e.g., hospital, hotel, apartment_building, department_store, shopping_mall in a 1,500 sqft storefront) = 0 pts and score the business type 1-5 overall with reasoning explaining it's not viable for this property type.
+
+**ML Financial Adjustment (−10 to +10 points)**
+After computing your base score from Pillars 1-4, adjust based on ML financial projections. This is a bounded modifier, not a fifth pillar — it shifts the base score to account for data-driven financial signals that the qualitative pillars may miss.
+
+Apply this adjustment by evaluating three signals together:
+
+- **Survival probability**: >0.60 is strong (+), 0.45-0.60 is neutral (0), <0.45 is a red flag (−). Note: categories in the same broad industry bucket share similar base rates — only give credit/penalty for meaningful differences driven by competition, not noise.
+- **Sqft-adjusted revenue vs. rent**: Take the model's estimated_annual_revenue and scale it for the property's actual sqft (relative to category average: ~1,200 sqft food, ~1,500 sqft retail, ~800 sqft services). If the adjusted revenue comfortably clears the annual rent at standard occupancy ratios, that's a positive signal. If it doesn't clear rent, that's a negative signal — even if demand scores are high.
+- **Capture rate**: >4% means strong conversion dynamics for this industry at this location (+). <1.5% means the location's traffic doesn't convert well for this category (−). Compare capture rates across DIFFERENT industry buckets to identify which business types the location naturally favors.
+
+Scoring the adjustment:
+- All three signals positive (high survival + revenue clears rent + strong capture) = +7 to +10
+- Two positive, one neutral = +3 to +6
+- Mixed or all neutral = 0 to +2
+- One negative signal = −1 to −4
+- Two or more negative signals = −5 to −10
+- If ML data is unavailable for a category = 0 (no adjustment)
+
+The final score after adjustment is still clamped to 1-100.
 
 ## Calibration Anchors
 

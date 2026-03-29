@@ -24,7 +24,7 @@ import json
 import os
 from dataclasses import dataclass, field
 from typing import Optional
-
+from ML_Algorithm import ProfitPrediction as pp
 import requests
 from dotenv import load_dotenv
 
@@ -324,4 +324,12 @@ def predict(ml_input: PropertyMLInput) -> PropertyMLOutput:
     Ryan implements this. Takes the full property context,
     returns survivability + revenue predictions per category.
     """
+    zip = None
+    traffic_data =None
+    nearby_competitors = None
+    survival_cat = None
+    avg_traffic = pp.calculate_average_traffic(traffic_data)
+    capture_rate = pp.get_advanced_features(zip, avg_traffic, survival_cat)['traffic_efficiency']
+    base_survival_rate_5 = pp.INDUSTRY_PROFILES[survival_cat]['rate'][4]
+    score = pp.predict_lot_success_ml(zip, avg_traffic, survival_cat, 0, nearby_competitors)
     raise NotImplementedError("Ryan is building this")

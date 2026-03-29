@@ -3,6 +3,7 @@
 import { useRecommendations } from '@/hooks/useRecommendations';
 import type { Recommendation } from '@/lib/types';
 import Skeleton from '@/components/ui/Skeleton';
+import { useEffect } from 'react';
 
 interface RecommendationsSectionProps {
   propertyId: string;
@@ -113,27 +114,13 @@ function StatusCard({
   );
 }
 
-function Placeholder({ onGenerate, generating }: { onGenerate: () => void; generating: boolean }) {
+function Placeholder() {
   return (
     <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50/50 p-6 text-center">
       <div className="text-3xl mb-3">🤖</div>
       <p className="text-sm font-medium text-gray-700">
         Recommendations for this property haven&apos;t been generated yet.
       </p>
-      <button
-        onClick={onGenerate}
-        disabled={generating}
-        className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50"
-      >
-        {generating ? (
-          <>
-            <Spinner className="h-3.5 w-3.5" />
-            Running recommendation engine...
-          </>
-        ) : (
-          'Run Recommendations'
-        )}
-      </button>
       <p className="mt-3 text-xs text-gray-400 leading-relaxed">
         Our AI analyzes neighborhood demand, competition gaps, and foot traffic
         to suggest the best business types for this location.
@@ -144,12 +131,8 @@ function Placeholder({ onGenerate, generating }: { onGenerate: () => void; gener
 
 function PartialData({
   missingAnalyses,
-  onRefresh,
-  refreshing,
 }: {
   missingAnalyses: string[];
-  onRefresh: () => void;
-  refreshing: boolean;
 }) {
   const labels: Record<string, string> = {
     restaurant_analysis: 'Restaurant analysis',
@@ -174,20 +157,57 @@ function PartialData({
       <p className="mt-3 text-xs text-gray-400 leading-relaxed">
         Recommendations will be available once all analyses are complete.
       </p>
+    </div>
+  );
+}
+
+function ActionsRow({
+  canGenerate,
+  refreshing,
+  generating,
+  onRefresh,
+  onGenerate,
+}: {
+  canGenerate: boolean;
+  refreshing: boolean;
+  generating: boolean;
+  onRefresh: () => void;
+  onGenerate: () => void;
+}) {
+  const disableActions = refreshing || generating;
+
+  return (
+    <div className="mb-3 flex flex-wrap items-center gap-2">
       <button
         onClick={onRefresh}
-        disabled={refreshing}
-        className="mt-4 inline-flex items-center justify-center gap-2 rounded-lg border border-amber-300 bg-white px-3 py-2 text-xs font-semibold text-amber-800 transition-colors hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-60"
+        disabled={disableActions}
+        className="inline-flex items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs font-semibold text-gray-700 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
       >
         {refreshing ? (
           <>
             <Spinner className="h-3 w-3" />
-            Checking...
+            Refreshing...
           </>
         ) : (
           'Refresh Status'
         )}
       </button>
+      {canGenerate && (
+        <button
+          onClick={onGenerate}
+          disabled={disableActions}
+          className="inline-flex items-center justify-center gap-2 rounded-lg bg-brand-600 px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {generating ? (
+            <>
+              <Spinner className="h-3 w-3" />
+              Generating...
+            </>
+          ) : (
+            'Generate Recommendations'
+          )}
+        </button>
+      )}
     </div>
   );
 }
@@ -195,7 +215,8 @@ function PartialData({
 export default function RecommendationsSection({ propertyId }: RecommendationsSectionProps) {
   const {
     recommendations,
-    loadingInitial,
+    isInitialLoading,
+    isRefreshing,
     isGenerating,
     error,
     partial,
@@ -205,13 +226,57 @@ export default function RecommendationsSection({ propertyId }: RecommendationsSe
   } =
     useRecommendations(propertyId);
 
+  const canGenerate =
+    !partial &&
+    recommendations.length === 0 &&
+    !isInitialLoading &&
+    !isRefreshing &&
+    !isGenerating;
+
+  useEffect(() => {
+    // #region agent log
+    fetch('http://127.0.0.1:7913/ingest/e737f7e8-dfd6-44cc-b7c5-6eba0ae2ca4a', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Debug-Session-Id': '65b61a',
+      },
+      body: JSON.stringify({
+        sessionId: '65b61a',
+        runId: 'rec-button-visibility',
+        hypothesisId: 'H5',
+        location: 'RecommendationsSection.tsx:derivedState',
+        message: 'render derived button visibility state',
+        data: {
+          propertyId,
+          partial,
+          recommendationCount: recommendations.length,
+          isInitialLoading,
+          isRefreshing,
+          isGenerating,
+          canGenerate,
+        },
+        timestamp: Date.now(),
+      }),
+    }).catch(() => {});
+    // #endregion
+  }, [propertyId, partial, recommendations.length, isInitialLoading, isRefreshing, isGenerating, canGenerate]);
+
   return (
     <div className="px-5 py-4 border-t border-gray-100">
       <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-3">
         AI Recommendations
       </h3>
 
-      {loadingInitial && recommendations.length === 0 && (
+      <ActionsRow
+        canGenerate={canGenerate}
+        refreshing={isRefreshing}
+        generating={isGenerating}
+        onRefresh={loadRecommendations}
+        onGenerate={generateRecommendations}
+      />
+
+      {isInitialLoading && recommendations.length === 0 && (
         <>
           <StatusCard
             title="Checking saved recommendations..."
@@ -240,19 +305,11 @@ export default function RecommendationsSection({ propertyId }: RecommendationsSe
         </p>
       )}
 
-      {!loadingInitial && !error && partial && (
-        <PartialData
-          missingAnalyses={missingAnalyses}
-          onRefresh={loadRecommendations}
-          refreshing={loadingInitial}
-        />
-      )}
+      {!isInitialLoading && !error && partial && <PartialData missingAnalyses={missingAnalyses} />}
 
-      {!loadingInitial && !error && !partial && recommendations.length === 0 && (
-        <Placeholder onGenerate={generateRecommendations} generating={isGenerating} />
-      )}
+      {!isInitialLoading && !error && !partial && recommendations.length === 0 && <Placeholder />}
 
-      {!loadingInitial && !error && recommendations.length > 0 && (
+      {!isInitialLoading && !error && recommendations.length > 0 && (
         <div className="space-y-3">
           {recommendations.map((rec) => (
             <RecommendationCard key={rec.id ?? `${rec.rank}-${rec.business_type}`} rec={rec} />

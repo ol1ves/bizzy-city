@@ -36,6 +36,13 @@ export default function PropertyInfo({ property }: PropertyInfoProps) {
           </div>
         ))}
       </div>
+
+      {property.description && (
+        <div className="mt-4">
+          <p className="text-xs text-gray-400">Building Description</p>
+          <p className="mt-1 text-sm leading-relaxed text-gray-700">{property.description}</p>
+        </div>
+      )}
     </div>
   );
 }

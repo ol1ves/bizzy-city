@@ -2,19 +2,21 @@
 
 // Color-code by analysis status:
 //   Analyzed & high score (>=70): warm coral
-//   Analyzed & medium score (40-69): muted tone
-//   Not yet analyzed: neutral gray
+//   Analyzed & medium score (40-69): muted tan
+//   Analyzed & low score (<40): soft peach
+//   Not yet analyzed: soft sky blue (inviting action)
 const PIN_COLORS = {
-  high: '#E8654A',    // warm coral - analyzed with high score
-  medium: '#C4956A',  // muted tone - analyzed with medium score
-  neutral: '#A8A29E', // neutral gray - not yet analyzed
+  high: '#E8654A',      // warm coral - high score
+  medium: '#C4956A',    // muted tan - medium score
+  low: '#E8B4A0',       // soft peach - low score
+  unanalyzed: '#7CB9D8', // soft sky blue - not yet analyzed
 };
 
 function getPinColor(score: number | null): string {
-  if (score === null) return PIN_COLORS.neutral;
+  if (score === null) return PIN_COLORS.unanalyzed;
   if (score >= 70) return PIN_COLORS.high;
   if (score >= 40) return PIN_COLORS.medium;
-  return PIN_COLORS.neutral;
+  return PIN_COLORS.low;
 }
 
 interface PropertyPinProps {

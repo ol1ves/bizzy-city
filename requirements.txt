@@ -1,0 +1,9 @@
+requests
+python-dotenv
+geopandas
+shapely
+pandas
+fastapi[standard]
+uvicorn[standard]
+openai
+supabase

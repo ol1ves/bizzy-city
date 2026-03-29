@@ -7,12 +7,13 @@
   "steps": {
     "install": {
       "commands": [
-        "python -m pip install --upgrade pip",
-        "python -m pip install requests python-dotenv geopandas shapely pandas 'fastapi[standard]' 'uvicorn[standard]' openai supabase"
+        "python -m venv .venv",
+        ".venv/bin/python -m pip install --upgrade pip",
+        ".venv/bin/python -m pip install requests python-dotenv geopandas shapely pandas 'fastapi[standard]' 'uvicorn[standard]' openai supabase"
       ]
     }
   },
   "deploy": {
-    "startCommand": "python -m uvicorn backend.api.main:app --host 0.0.0.0 --port $PORT"
+    "startCommand": ".venv/bin/python -m uvicorn backend.api.main:app --host 0.0.0.0 --port $PORT"
   }
 }

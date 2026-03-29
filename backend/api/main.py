@@ -58,6 +58,15 @@ app.add_middleware(
 )
 
 
+@app.get("/api/health")
+async def health_check():
+    return {
+        "status": "ok",
+        "supabase_ready": _supabase is not None,
+        "openai_ready": _openai is not None,
+    }
+
+
 @app.get("/api/recommendations/{property_id}")
 async def get_recommendations(property_id: str):
     assert _supabase is not None and _openai is not None

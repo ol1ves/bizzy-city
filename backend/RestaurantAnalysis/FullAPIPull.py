@@ -36,7 +36,7 @@ def search_category(lat, lng, category, radius=200):
     headers = {
         "Content-Type": "application/json",
         "X-Goog-Api-Key": GOOGLE_API_KEY,
-        "X-Goog-FieldMask": "places.id,places.displayName,places.rating,places.userRatingCount,places.formattedAddress"
+        "X-Goog-FieldMask": "places.id,places.displayName,places.rating,places.userRatingCount,places.formattedAddress,places.location"
     }
     body = {
         "includedTypes": [category],
@@ -63,12 +63,12 @@ def scrape_area(lat, lng, radius=200):
             if p.get("id"): all_seen_ids.add(p["id"])
 
         if not places:
-            results[category] = {"count": 0, "top_place": None}
+            results[category] = {"count": 0, "top_place": None, "places": []}
             continue
 
         rated = [p for p in places if p.get("rating") and (p.get("userRatingCount") or 0) >= MIN_REVIEWS]
         if not rated:
-            results[category] = {"count": len(places), "top_place": None}
+            results[category] = {"count": len(places), "top_place": None, "places": places}
             continue
 
         sorted_p = sorted(rated, key=lambda x: (x['rating'], x['userRatingCount']), reverse=True)
@@ -82,7 +82,8 @@ def scrape_area(lat, lng, radius=200):
             "top_place_address": top.get("formattedAddress", ""),
             "top_rating": top.get("rating"),
             "top_review_count": top.get("userRatingCount", 0),
-            "avg_rating": round(avg, 2)
+            "avg_rating": round(avg, 2),
+            "places": places,
         }
         print(f"  ✓ {category:<25} | {len(places)} found | Top: {results[category]['top_place']}")
         time.sleep(0.05)

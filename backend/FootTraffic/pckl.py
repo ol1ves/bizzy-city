@@ -8,16 +8,24 @@ DEFAULT_GEOJSON = os.path.join(
     "NYC_pednetwork_estimates_counts_2018-2019.geojson",
 )
 
+_cached_gdf = None
+
+
+def _load_gdf(geojson_path=None):
+    """Load GeoDataFrame once and cache for subsequent lookups."""
+    global _cached_gdf
+    if _cached_gdf is None:
+        path = geojson_path or DEFAULT_GEOJSON
+        _cached_gdf = gpd.read_file(path)
+    return _cached_gdf
+
 
 def get_traffic_by_coords(lat, lon, geojson_path=None):
     """
     Finds the nearest sidewalk segment to a Lat/Long coordinate
     and returns its calibrated pedestrian traffic estimates.
     """
-    if geojson_path is None:
-        geojson_path = DEFAULT_GEOJSON
-
-    gdf = gpd.read_file(geojson_path)
+    gdf = _load_gdf(geojson_path)
 
     user_point = Point(lon, lat)
 

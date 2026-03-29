@@ -30,7 +30,7 @@ def search_nearby_retail(lat, lng, category, radius=1000):
     headers = {
         "Content-Type": "application/json",
         "X-Goog-Api-Key": GOOGLE_API_KEY,
-        "X-Goog-FieldMask": "places.id,places.displayName,places.rating,places.userRatingCount,places.reviews"
+        "X-Goog-FieldMask": "places.id,places.displayName,places.rating,places.userRatingCount,places.reviews,places.location,places.formattedAddress"
     }
     body = {
         "includedTypes": [category],

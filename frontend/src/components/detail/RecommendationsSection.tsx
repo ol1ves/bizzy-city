@@ -17,26 +17,60 @@ interface RecommendationsSectionProps {
   propertyId: string;
 }
 
-function ScoreBar({ score }: { score: number }) {
-  const color =
-    score >= 80 ? 'bg-green-500' : score >= 60 ? 'bg-yellow-500' : 'bg-orange-500';
+function CircularScore({ score }: { score: number }) {
+  const radius = 45;
+  const circumference = 2 * Math.PI * radius;
+  const offset = circumference - (score / 100) * circumference;
+  
+  const getColor = (s: number) => {
+    if (s >= 80) return '#22C55E';
+    if (s >= 60) return '#FBBF24';
+    return '#FB923C';
+  };
+
   return (
-    <div className="flex items-center gap-2">
-      <div className="h-2 flex-1 rounded-full bg-gray-100 overflow-hidden">
-        <div
-          className={`h-full rounded-full ${color}`}
-          style={{ width: `${score}%` }}
-        />
+    <div className="flex flex-col items-center gap-2">
+      <div className="relative w-28 h-28">
+        <svg className="w-full h-full" viewBox="0 0 100 100">
+          {/* Background circle */}
+          <circle
+            cx="50"
+            cy="50"
+            r={radius}
+            fill="none"
+            stroke="#E8E4E0"
+            strokeWidth="4"
+          />
+          {/* Progress circle */}
+          <circle
+            cx="50"
+            cy="50"
+            r={radius}
+            fill="none"
+            stroke={getColor(score)}
+            strokeWidth="4"
+            strokeDasharray={circumference}
+            strokeDashoffset={offset}
+            strokeLinecap="round"
+            style={{ transform: 'rotate(-90deg)', transformOrigin: '50px 50px' }}
+            className="transition-all duration-300"
+          />
+          {/* Center text */}
+          <text
+            x="50"
+            y="55"
+            textAnchor="middle"
+            className="fill-neutral-900 font-bold text-base"
+            style={{ fontSize: '24px' }}
+          >
+            {score}
+          </text>
+        </svg>
       </div>
-      <span className="text-xs font-bold text-gray-700 tabular-nums w-10 text-right">
-        {score}/100
-      </span>
+      <span className="text-xs font-medium text-neutral-500">/100</span>
     </div>
   );
 }
-
-const REVENUE_TIER_TITLE =
-  'Compared to other recommendations for this property. Dollar signs are relative bands only, not a public dollar estimate.';
 
 function RecommendationCard({
   rec,
@@ -56,54 +90,74 @@ function RecommendationCard({
   const revenueDisplay = revenueTier ?? '—';
 
   return (
-    <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
-      <div className="flex items-start justify-between gap-2 mb-2">
-        <div className="flex items-center gap-2">
-          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-brand-50 text-xs font-bold text-brand-700">
-            {rec.rank}
-          </span>
-          <h4 className="text-sm font-semibold text-gray-900 capitalize">
-            {rec.business_type}
-          </h4>
+    <div className="rounded-xl border border-neutral-200 bg-white p-5 shadow-sm hover:shadow-md transition-shadow">
+      <div className="flex gap-4">
+        {/* Circular Score */}
+        <div className="flex-shrink-0">
+          <CircularScore score={rec.score} />
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-start justify-between gap-2 mb-3">
+            <div>
+              <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-accent-100 text-xs font-bold text-accent-700 mr-2">
+                {rec.rank}
+              </span>
+              <h4 className="inline text-base font-semibold text-neutral-900 capitalize">
+                {rec.business_type}
+              </h4>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-x-4 gap-y-2.5 text-sm sm:grid-cols-3 mb-3">
+            <div>
+              <div className="text-neutral-500 text-xs font-medium leading-snug">
+                Walk-by conversion
+              </div>
+              <div className="mt-1 font-semibold tabular-nums text-neutral-900">
+                {conversionDisplay}
+              </div>
+            </div>
+            <div>
+              <div className="text-neutral-500 text-xs font-medium leading-snug">
+                5-year survival
+              </div>
+              <div className="mt-1 font-semibold tabular-nums text-neutral-900">
+                {survivalDisplay}
+              </div>
+            </div>
+            <div>
+              <div className="text-neutral-500 text-xs font-medium leading-snug">
+                Revenue potential
+              </div>
+              <div className="mt-1 font-semibold tracking-wider text-neutral-900">
+                {revenueDisplay}
+              </div>
+            </div>
+          </div>
+
+          {(rec.summary ?? rec.reasoning) && (
+            <p className="text-xs leading-relaxed text-neutral-600 mb-3">
+              {rec.summary ?? rec.reasoning}
+            </p>
+          )}
+
+          {signalKeys.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {signalKeys.map((key) => (
+                <span
+                  key={key}
+                  className="inline-flex items-center rounded-full bg-accent-50 px-2.5 py-1 text-[10px] font-medium text-accent-700 border border-accent-200"
+                  title={String(signals[key])}
+                >
+                  {key.replace(/_/g, ' ')}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
       </div>
-
-      <ScoreBar score={rec.score} />
-
-      <div className="mt-2 grid grid-cols-1 gap-x-3 gap-y-2 text-xs sm:grid-cols-3">
-        <div>
-          <div className="text-gray-400 leading-snug">Est. walk-by → sale conversion</div>
-          <div className="mt-0.5 font-medium tabular-nums text-gray-800">{conversionDisplay}</div>
-        </div>
-        <div>
-          <div className="text-gray-400 leading-snug">Est. 5-yr survival probability</div>
-          <div className="mt-0.5 font-medium tabular-nums text-gray-800">{survivalDisplay}</div>
-        </div>
-        <div title={revenueTier !== null ? REVENUE_TIER_TITLE : undefined}>
-          <div className="text-gray-400 leading-snug">Revenue potential (relative)</div>
-          <div className="mt-0.5 font-semibold tracking-widest text-gray-800">{revenueDisplay}</div>
-        </div>
-      </div>
-
-      {(rec.summary ?? rec.reasoning) && (
-        <p className="mt-2 text-xs leading-relaxed text-gray-600">
-          {rec.summary ?? rec.reasoning}
-        </p>
-      )}
-
-      {signalKeys.length > 0 && (
-        <div className="mt-2 flex flex-wrap gap-1">
-          {signalKeys.map((key) => (
-            <span
-              key={key}
-              className="inline-flex items-center rounded-full bg-brand-50 px-2 py-0.5 text-[10px] font-medium text-brand-700"
-              title={String(signals[key])}
-            >
-              {key.replace(/_/g, ' ')}
-            </span>
-          ))}
-        </div>
-      )}
     </div>
   );
 }
@@ -112,14 +166,15 @@ function LoadingSkeleton() {
   return (
     <div className="space-y-3">
       {[1, 2, 3].map((i) => (
-        <div key={i} className="rounded-xl border border-gray-100 p-4">
-          <div className="flex items-center gap-2 mb-3">
-            <Skeleton className="h-6 w-6 rounded-full" />
-            <Skeleton className="h-4 w-32" />
+        <div key={i} className="rounded-xl border border-neutral-200 p-5">
+          <div className="flex gap-4">
+            <Skeleton className="h-28 w-28 rounded-full flex-shrink-0" />
+            <div className="flex-1">
+              <Skeleton className="h-4 w-32 mb-3" />
+              <Skeleton className="h-3 w-full mb-2" />
+              <Skeleton className="h-3 w-3/4" />
+            </div>
           </div>
-          <Skeleton className="h-2 w-full rounded-full" />
-          <Skeleton className="mt-3 h-3 w-full" />
-          <Skeleton className="mt-1 h-3 w-3/4" />
         </div>
       ))}
     </div>
@@ -138,31 +193,65 @@ function Spinner({ className = 'h-4 w-4' }: { className?: string }) {
 function StatusCard({
   title,
   description,
+  type = 'loading',
 }: {
   title: string;
   description: string;
+  type?: 'loading' | 'warning' | 'error';
 }) {
+  const bgClass =
+    type === 'warning'
+      ? 'bg-amber-50 border-amber-200'
+      : type === 'error'
+      ? 'bg-red-50 border-red-200'
+      : 'bg-accent-50 border-accent-200';
+  
+  const textClass =
+    type === 'warning'
+      ? 'text-amber-900'
+      : type === 'error'
+      ? 'text-red-900'
+      : 'text-accent-900';
+
+  const descClass =
+    type === 'warning'
+      ? 'text-amber-800'
+      : type === 'error'
+      ? 'text-red-800'
+      : 'text-accent-800';
+
   return (
-    <div className="mb-3 rounded-lg border border-brand-100 bg-brand-50 px-3 py-2 text-brand-800">
-      <div className="flex items-center gap-2 text-sm font-medium">
-        <Spinner />
+    <div className={`mb-3 rounded-lg border ${bgClass} px-4 py-3`}>
+      <div className={`flex items-center gap-2 text-sm font-medium ${textClass}`}>
+        {type === 'loading' && <Spinner className="h-3.5 w-3.5" />}
+        {type === 'warning' && (
+          <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+            <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+          </svg>
+        )}
+        {type === 'error' && (
+          <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+          </svg>
+        )}
         <span>{title}</span>
       </div>
-      <p className="mt-1 text-xs text-brand-700">{description}</p>
+      <p className={`mt-1 text-xs leading-relaxed ${descClass}`}>
+        {description}
+      </p>
     </div>
   );
 }
 
 function Placeholder() {
   return (
-    <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50/50 p-6 text-center">
-      <div className="text-3xl mb-3">🤖</div>
-      <p className="text-sm font-medium text-gray-700">
-        Recommendations for this property haven&apos;t been generated yet.
+    <div className="rounded-xl border border-dashed border-neutral-300 bg-neutral-50/50 p-8 text-center">
+      <div className="text-4xl mb-3">🤖</div>
+      <p className="text-base font-semibold text-neutral-700">
+        No recommendations yet
       </p>
-      <p className="mt-3 text-xs text-gray-400 leading-relaxed">
-        Our AI analyzes neighborhood demand, competition gaps, and foot traffic
-        to suggest the best business types for this location.
+      <p className="mt-2 text-sm leading-relaxed text-neutral-500">
+        Click "Generate Recommendations" to get AI-powered business suggestions based on neighborhood demand, competition gaps, and foot traffic analysis.
       </p>
     </div>
   );
@@ -181,20 +270,20 @@ function PartialData({
   };
 
   return (
-    <div className="rounded-xl border border-dashed border-amber-200 bg-amber-50/50 p-6 text-center">
-      <div className="text-3xl mb-3">📊</div>
-      <p className="text-sm font-medium text-gray-700">
-        Analysis data is still being collected for this property.
+    <div className="rounded-xl border border-dashed border-amber-200 bg-amber-50/50 p-8 text-center">
+      <div className="text-4xl mb-3">📊</div>
+      <p className="text-base font-semibold text-amber-900">
+        Analysis in progress
       </p>
-      <div className="mt-3 space-y-1">
+      <div className="mt-3 text-sm space-y-1">
         {missingAnalyses.map((key) => (
-          <p key={key} className="text-xs text-amber-700">
-            &#x2022; {labels[key] ?? key} — pending
+          <p key={key} className="text-amber-800">
+            {labels[key] ?? key} — pending
           </p>
         ))}
       </div>
-      <p className="mt-3 text-xs text-gray-400 leading-relaxed">
-        Recommendations will be available once all analyses are complete.
+      <p className="mt-3 text-xs text-amber-700">
+        Recommendations will be available once all analyses complete.
       </p>
     </div>
   );
@@ -216,11 +305,11 @@ function ActionsRow({
   const disableActions = refreshing || generating;
 
   return (
-    <div className="mb-3 flex flex-wrap items-center gap-2">
+    <div className="mb-4 flex flex-wrap items-center gap-2">
       <button
         onClick={onRefresh}
         disabled={disableActions}
-        className="inline-flex items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs font-semibold text-gray-700 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+        className="inline-flex items-center justify-center gap-2 rounded-lg border border-neutral-300 bg-white px-3 py-2 text-xs font-semibold text-neutral-700 transition-colors hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-60"
       >
         {refreshing ? (
           <>
@@ -228,14 +317,19 @@ function ActionsRow({
             Refreshing...
           </>
         ) : (
-          'Refresh Status'
+          <>
+            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            Refresh Status
+          </>
         )}
       </button>
       {canGenerate && (
         <button
           onClick={onGenerate}
           disabled={disableActions}
-          className="inline-flex items-center justify-center gap-2 rounded-lg bg-brand-600 px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-60"
+          className="inline-flex items-center justify-center gap-2 rounded-lg bg-accent-500 px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-accent-600 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {generating ? (
             <>
@@ -243,7 +337,12 @@ function ActionsRow({
               Generating...
             </>
           ) : (
-            'Generate Recommendations'
+            <>
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+              Generate Recommendations
+            </>
           )}
         </button>
       )}
@@ -305,8 +404,8 @@ export default function RecommendationsSection({ propertyId }: RecommendationsSe
     recommendations.length > 0 ? computeRevenueTiers(recommendations) : null;
 
   return (
-    <div className="px-5 py-4 border-t border-gray-100">
-      <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-3">
+    <div className="border-t border-neutral-200 px-5 py-4">
+      <h3 className="text-xs font-bold uppercase tracking-wider text-neutral-400 mb-4">
         AI Recommendations
       </h3>
 
@@ -321,8 +420,8 @@ export default function RecommendationsSection({ propertyId }: RecommendationsSe
       {isInitialLoading && recommendations.length === 0 && (
         <>
           <StatusCard
-            title="Checking saved recommendations..."
-            description="Loading previously generated recommendations for this property."
+            title="Loading recommendations..."
+            description="Checking for previously generated recommendations for this property."
           />
           <LoadingSkeleton />
         </>
@@ -330,21 +429,17 @@ export default function RecommendationsSection({ propertyId }: RecommendationsSe
 
       {isGenerating && (
         <StatusCard
-          title="Running recommendation engine..."
-          description="This can take a few moments while we evaluate demand and foot traffic signals."
+          title="Generating recommendations..."
+          description="Our AI is analyzing neighborhood demand signals and market data to find the best business opportunities."
         />
       )}
 
       {error && (
-        <p className="text-sm text-red-500">
-          Failed to load recommendations.{' '}
-          <button
-            className="underline hover:text-red-700"
-            onClick={loadRecommendations}
-          >
-            Retry
-          </button>
-        </p>
+        <StatusCard
+          title="Unable to load recommendations"
+          description="Try refreshing the page or generating new recommendations."
+          type="error"
+        />
       )}
 
       {!isInitialLoading && !error && partial && <PartialData missingAnalyses={missingAnalyses} />}
@@ -353,8 +448,8 @@ export default function RecommendationsSection({ propertyId }: RecommendationsSe
 
       {!isInitialLoading && !error && recommendations.length > 0 && (
         <div className="space-y-3">
-          <p className="text-[11px] leading-relaxed text-gray-400">
-            Revenue symbols are relative to other picks for this listing, not dollar amounts.
+          <p className="text-xs leading-relaxed text-neutral-400">
+            Revenue symbols are relative rankings for this property, not actual dollar amounts.
           </p>
           {revenueTiersByKey &&
             recommendations.map((rec) => {

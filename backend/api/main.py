@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import json
 import os
 import sys
+import time
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -28,6 +30,28 @@ ANALYSIS_COLUMNS = (
 
 _supabase: SupabaseClient | None = None
 _openai: OpenAI | None = None
+
+_AGENT_LOG_PATH = Path("/Users/oliversantana/Documents/dev/busi-city/.cursor/debug-c6821a.log")
+
+
+def _agent_log(hypothesis_id: str, location: str, message: str, data: dict) -> None:
+    # region agent log
+    try:
+        payload = {
+            "sessionId": "c6821a",
+            "runId": "local-500",
+            "hypothesisId": hypothesis_id,
+            "location": location,
+            "message": message,
+            "data": data,
+            "timestamp": int(time.time() * 1000),
+        }
+        _AGENT_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+        with _AGENT_LOG_PATH.open("a", encoding="utf-8") as f:
+            f.write(json.dumps(payload, default=str, separators=(",", ":")) + "\n")
+    except Exception:
+        pass
+    # endregion
 
 
 @asynccontextmanager
@@ -132,10 +156,35 @@ async def get_recommendations(
             openai_client=_openai,
         )
     except Exception as exc:
+        # region agent log
+        _agent_log(
+            "H4",
+            "main.get_recommendations:exception",
+            "generate_recommendations raised",
+            {
+                "property_id": property_id,
+                "error_type": type(exc).__name__,
+                "error": str(exc),
+            },
+        )
+        # endregion
         raise HTTPException(
             status_code=500,
             detail=f"Recommendation generation failed: {exc}",
         )
+
+    # region agent log
+    _agent_log(
+        "H3",
+        "main.get_recommendations:before_return",
+        "preparing JSON response",
+        {
+            "property_id": property_id,
+            "count": len(recommendations),
+            "first_keys": list(recommendations[0].keys()) if recommendations else [],
+        },
+    )
+    # endregion
 
     return {
         "property_id": property_id,

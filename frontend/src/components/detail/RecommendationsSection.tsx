@@ -2,6 +2,14 @@
 
 import { useRecommendations } from '@/hooks/useRecommendations';
 import type { Recommendation } from '@/lib/types';
+import {
+  computeRevenueTiers,
+  formatCaptureRateDisplay,
+  formatSurvivalProbabilityDisplay,
+  parseRecommendationNumber,
+  recommendationStableKey,
+  type RevenueTier,
+} from '@/lib/recommendationDisplay';
 import Skeleton from '@/components/ui/Skeleton';
 import { useEffect } from 'react';
 
@@ -27,9 +35,25 @@ function ScoreBar({ score }: { score: number }) {
   );
 }
 
-function RecommendationCard({ rec }: { rec: Recommendation }) {
+const REVENUE_TIER_TITLE =
+  'Compared to other recommendations for this property. Dollar signs are relative bands only, not a public dollar estimate.';
+
+function RecommendationCard({
+  rec,
+  revenueTier,
+}: {
+  rec: Recommendation;
+  revenueTier: RevenueTier | null;
+}) {
   const signals = rec.demand_signals ?? {};
   const signalKeys = Object.keys(signals);
+  const conversionDisplay =
+    formatCaptureRateDisplay(parseRecommendationNumber(rec.capture_rate)) ?? '—';
+  const survivalDisplay =
+    formatSurvivalProbabilityDisplay(
+      parseRecommendationNumber(rec.survival_probability),
+    ) ?? '—';
+  const revenueDisplay = revenueTier ?? '—';
 
   return (
     <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
@@ -46,9 +70,24 @@ function RecommendationCard({ rec }: { rec: Recommendation }) {
 
       <ScoreBar score={rec.score} />
 
-      {rec.reasoning && (
+      <div className="mt-2 grid grid-cols-1 gap-x-3 gap-y-2 text-xs sm:grid-cols-3">
+        <div>
+          <div className="text-gray-400 leading-snug">Est. walk-by → sale conversion</div>
+          <div className="mt-0.5 font-medium tabular-nums text-gray-800">{conversionDisplay}</div>
+        </div>
+        <div>
+          <div className="text-gray-400 leading-snug">Est. 5-yr survival probability</div>
+          <div className="mt-0.5 font-medium tabular-nums text-gray-800">{survivalDisplay}</div>
+        </div>
+        <div title={revenueTier !== null ? REVENUE_TIER_TITLE : undefined}>
+          <div className="text-gray-400 leading-snug">Revenue potential (relative)</div>
+          <div className="mt-0.5 font-semibold tracking-widest text-gray-800">{revenueDisplay}</div>
+        </div>
+      </div>
+
+      {(rec.summary ?? rec.reasoning) && (
         <p className="mt-2 text-xs leading-relaxed text-gray-600">
-          {rec.reasoning}
+          {rec.summary ?? rec.reasoning}
         </p>
       )}
 
@@ -262,6 +301,9 @@ export default function RecommendationsSection({ propertyId }: RecommendationsSe
     // #endregion
   }, [propertyId, partial, recommendations.length, isInitialLoading, isRefreshing, isGenerating, canGenerate]);
 
+  const revenueTiersByKey =
+    recommendations.length > 0 ? computeRevenueTiers(recommendations) : null;
+
   return (
     <div className="px-5 py-4 border-t border-gray-100">
       <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-3">
@@ -311,9 +353,20 @@ export default function RecommendationsSection({ propertyId }: RecommendationsSe
 
       {!isInitialLoading && !error && recommendations.length > 0 && (
         <div className="space-y-3">
-          {recommendations.map((rec) => (
-            <RecommendationCard key={rec.id ?? `${rec.rank}-${rec.business_type}`} rec={rec} />
-          ))}
+          <p className="text-[11px] leading-relaxed text-gray-400">
+            Revenue symbols are relative to other picks for this listing, not dollar amounts.
+          </p>
+          {revenueTiersByKey &&
+            recommendations.map((rec) => {
+              const key = recommendationStableKey(rec);
+              return (
+                <RecommendationCard
+                  key={key}
+                  rec={rec}
+                  revenueTier={revenueTiersByKey.get(key) ?? null}
+                />
+              );
+            })}
         </div>
       )}
     </div>

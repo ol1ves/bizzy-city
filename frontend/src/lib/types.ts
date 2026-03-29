@@ -23,6 +23,7 @@ export interface Property {
   top_rec_business: string | null;
   top_rec_score: number | null;
   top_rec_reasoning: string | null;
+  top_rec_summary: string | null;
 }
 
 export interface PropertyImage {
@@ -40,7 +41,11 @@ export interface Recommendation {
   business_type: string;
   score: number;
   reasoning: string | null;
+  summary: string | null;
   demand_signals: Record<string, unknown>;
+  capture_rate?: number | string | null;
+  estimated_annual_revenue?: number | string | null;
+  survival_probability?: number | string | null;
   created_at: string;
   updated_at: string;
 }

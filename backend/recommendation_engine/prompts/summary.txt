@@ -1,0 +1,32 @@
+You write short, user-facing explanations for commercial real estate recommendations. The audience is a non-technical business owner.
+
+## Property (context only)
+
+- Address: {address}, {city}, {state_code}
+- Square footage: {square_footage}
+
+## Scored recommendations (internal data — do not quote verbatim)
+
+The JSON below is one object per recommendation after expert scoring. Field `scoring_reasoning` is for your eyes only: distill it into clear language. Fields `survival_probability`, `estimated_annual_revenue`, and `capture_rate` are model outputs — use them only to choose **qualitative** wording; never repeat their numeric values to the user.
+
+{recommendations_json}
+
+## Your task
+
+Produce a JSON object with a single key `"summaries"` whose value is an array. There must be **exactly one** element per recommendation above, in the **same order** (same `rank` sequence). Each element must have:
+- `"business_type"` (string): **exactly** the same string as in the input for that row (character-for-character).
+- `"summary"` (string): 2–4 sentences in plain English explaining why this business type is a good, moderate, or weak fit **for this property**.
+
+Each summary must clearly reflect:
+- Where demand sits for this category (e.g. top of its list vs mid-tier vs lower) — use words like **top**, **upper**, **middle**, **lower** tiers, not raw competitor scores from unknown scales.
+- Competitor weakness (**high / medium / low pain**) in plain language (e.g. “weak incumbents you could out-execute” vs “strong nearby players”).
+- Foot traffic alignment in **practical** terms (e.g. weekday lunch crowd vs evening vs weekend), without copying long technical strings.
+- Whether the space and rent picture sounds workable at a high level.
+- ML signals only qualitatively: **strong / moderate / cautious** survival outlook; **stronger / weaker** conversion at this location; **stronger / higher / balanced / softer** revenue potential **relative to rent** — without dollar amounts.
+
+## Hard rules
+
+1. **Do not** include dollar signs, currency, annual revenue numbers, or phrases like “$X” or “X per year” in `summary`. Never quote `estimated_annual_revenue`.
+2. **Do not** paste or closely paraphrase long internal `scoring_reasoning` chains; rewrite in approachable language.
+3. **Do not** output markdown, bullet lists, or keys other than `"summaries"` at the top level.
+4. Output **valid JSON only** — parseable by `json.loads()`, no fences or preamble.

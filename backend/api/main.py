@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import os
 import sys
 import time
+from collections import defaultdict, deque
 from contextlib import asynccontextmanager
+from datetime import date
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -13,7 +16,7 @@ _backend_root = Path(__file__).resolve().parent.parent
 load_dotenv(_backend_root.parent / ".env")
 sys.path.insert(0, str(_backend_root))
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from openai import OpenAI
@@ -30,6 +33,13 @@ ANALYSIS_COLUMNS = (
 
 _supabase: SupabaseClient | None = None
 _openai: OpenAI | None = None
+_generation_locks: dict[str, asyncio.Lock] = {}
+_generation_attempts: dict[tuple[str, str], deque[float]] = defaultdict(deque)
+_daily_generation_counts: dict[str, int] = defaultdict(int)
+
+_WINDOW_SECONDS = int(os.getenv("DEMO_GENERATE_WINDOW_SECONDS", "300"))
+_MAX_ATTEMPTS_PER_WINDOW = int(os.getenv("DEMO_GENERATE_MAX_ATTEMPTS", "3"))
+_DAILY_GENERATION_CAP = int(os.getenv("DEMO_DAILY_GENERATION_CAP", "250"))
 
 _AGENT_LOG_PATH = Path("/Users/oliversantana/Documents/dev/busi-city/.cursor/debug-c6821a.log")
 
@@ -52,6 +62,44 @@ def _agent_log(hypothesis_id: str, location: str, message: str, data: dict) -> N
     except Exception:
         pass
     # endregion
+
+
+def _prune_and_count_attempts(client_ip: str, property_id: str) -> int:
+    now = time.time()
+    key = (client_ip, property_id)
+    q = _generation_attempts[key]
+    while q and now - q[0] > _WINDOW_SECONDS:
+        q.popleft()
+    return len(q)
+
+
+def _register_attempt(client_ip: str, property_id: str) -> int:
+    key = (client_ip, property_id)
+    q = _generation_attempts[key]
+    q.append(time.time())
+    return len(q)
+
+
+def _property_lock(property_id: str) -> asyncio.Lock:
+    lock = _generation_locks.get(property_id)
+    if lock is None:
+        lock = asyncio.Lock()
+        _generation_locks[property_id] = lock
+    return lock
+
+
+def _daily_key() -> str:
+    return date.today().isoformat()
+
+
+def _get_daily_count() -> int:
+    return _daily_generation_counts[_daily_key()]
+
+
+def _increment_daily_count() -> int:
+    k = _daily_key()
+    _daily_generation_counts[k] += 1
+    return _daily_generation_counts[k]
 
 
 @asynccontextmanager
@@ -98,6 +146,7 @@ async def health_check():
 
 @app.get("/api/recommendations/{property_id}")
 async def get_recommendations(
+    request: Request,
     property_id: str,
     generate: bool = Query(default=True, description="Generate recommendations when missing"),
 ):
@@ -116,18 +165,22 @@ async def get_recommendations(
 
     property_data = prop_result.data
 
+    def _read_recommendations():
+        return (
+            _supabase.table("recommendations")
+            .select("*")
+            .eq("property_id", property_id)
+            .order("rank")
+            .execute()
+        )
+
     # 2. Check for cached recommendations
-    recs_result = (
-        _supabase.table("recommendations")
-        .select("*")
-        .eq("property_id", property_id)
-        .order("rank")
-        .execute()
-    )
+    recs_result = _read_recommendations()
     if recs_result.data:
         return {
             "property_id": property_id,
             "recommendations": recs_result.data,
+            "already_generated": True,
         }
 
     # 3. Check analysis completeness
@@ -148,13 +201,77 @@ async def get_recommendations(
             "recommendations": [],
         }
 
+    client_ip = request.client.host if request.client else "unknown"
+    existing_attempts = _prune_and_count_attempts(client_ip, property_id)
+    if existing_attempts >= _MAX_ATTEMPTS_PER_WINDOW:
+        _agent_log(
+            "SEC_RATE",
+            "main.get_recommendations:rate_limited",
+            "generation blocked by window throttle",
+            {
+                "property_id": property_id,
+                "client_ip": client_ip,
+                "attempts_in_window": existing_attempts,
+                "window_seconds": _WINDOW_SECONDS,
+            },
+        )
+        raise HTTPException(
+            status_code=429,
+            detail="Generation is temporarily rate limited for this property. Please try again shortly.",
+        )
+    _register_attempt(client_ip, property_id)
+
+    daily_count = _get_daily_count()
+    if daily_count >= _DAILY_GENERATION_CAP:
+        _agent_log(
+            "SEC_CAP",
+            "main.get_recommendations:daily_cap",
+            "generation blocked by daily cap",
+            {
+                "property_id": property_id,
+                "client_ip": client_ip,
+                "daily_count": daily_count,
+                "daily_cap": _DAILY_GENERATION_CAP,
+            },
+        )
+        raise HTTPException(
+            status_code=429,
+            detail="Daily generation limit reached for the demo.",
+        )
+
+    lock = _property_lock(property_id)
+    async with lock:
+        recs_result = _read_recommendations()
+        if recs_result.data:
+            _agent_log(
+                "SEC_EXISTS",
+                "main.get_recommendations:skip_existing",
+                "generation skipped because recommendations already exist",
+                {"property_id": property_id, "client_ip": client_ip},
+            )
+            return {
+                "property_id": property_id,
+                "recommendations": recs_result.data,
+                "already_generated": True,
+                "generation_blocked": "already_exists",
+            }
+
     # 5. Generate via the engine (2-step LLM pipeline)
     try:
-        recommendations = generate_recommendations(
-            property_id=property_id,
-            supabase_client=_supabase,
-            openai_client=_openai,
-        )
+        async with lock:
+            recs_result = _read_recommendations()
+            if recs_result.data:
+                return {
+                    "property_id": property_id,
+                    "recommendations": recs_result.data,
+                    "already_generated": True,
+                    "generation_blocked": "already_exists",
+                }
+            recommendations = generate_recommendations(
+                property_id=property_id,
+                supabase_client=_supabase,
+                openai_client=_openai,
+            )
     except Exception as exc:
         # region agent log
         _agent_log(
@@ -172,6 +289,7 @@ async def get_recommendations(
             status_code=500,
             detail=f"Recommendation generation failed: {exc}",
         )
+    _increment_daily_count()
 
     # region agent log
     _agent_log(
@@ -189,6 +307,7 @@ async def get_recommendations(
     return {
         "property_id": property_id,
         "recommendations": recommendations,
+        "already_generated": False,
     }
 
 

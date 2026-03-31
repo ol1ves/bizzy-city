@@ -47,6 +47,7 @@ export function useRecommendations(propertyId: string | null) {
   const [error, setError] = useState<string | null>(null);
   const [partial, setPartial] = useState(false);
   const [missingAnalyses, setMissingAnalyses] = useState<string[]>([]);
+  const [alreadyGenerated, setAlreadyGenerated] = useState(false);
 
   const fetchRecommendations = useCallback(
     async (mode: 'initial' | 'refresh' | 'generate') => {
@@ -64,6 +65,7 @@ export function useRecommendations(propertyId: string | null) {
       }
 
       setError(null);
+      setAlreadyGenerated(false);
       debugRec({
         runId: 'rec-button-visibility',
         hypothesisId: 'H1',
@@ -82,6 +84,7 @@ export function useRecommendations(propertyId: string | null) {
           setPartial(true);
           setMissingAnalyses(body.missing_analyses ?? []);
           setRecommendations([]);
+          setAlreadyGenerated(false);
           debugRec({
             runId: 'rec-button-visibility',
             hypothesisId: 'H2',
@@ -109,6 +112,7 @@ export function useRecommendations(propertyId: string | null) {
           setPartial(false);
           setMissingAnalyses([]);
           setRecommendations(body.recommendations ?? []);
+          setAlreadyGenerated(Boolean(body.already_generated));
           debugRec({
             runId: 'rec-button-visibility',
             hypothesisId: 'H3',
@@ -154,6 +158,7 @@ export function useRecommendations(propertyId: string | null) {
       setError(null);
       setPartial(false);
       setMissingAnalyses([]);
+      setAlreadyGenerated(false);
       return;
     }
 
@@ -168,6 +173,7 @@ export function useRecommendations(propertyId: string | null) {
     error,
     partial,
     missingAnalyses,
+    alreadyGenerated,
     loadRecommendations,
     generateRecommendations,
   };

@@ -12,15 +12,11 @@ export function useProperties() {
   useEffect(() => {
     async function fetchProperties() {
       const supabase = getSupabase();
-      let { data, error: queryError } = await supabase
-        .from('properties_with_top_rec')
-        .select('*');
-
-      if (queryError) {
-        ({ data, error: queryError } = await supabase
-          .from('properties')
-          .select('*'));
-      }
+      const { data, error: queryError } = await supabase
+        .from('public_properties_demo')
+        .select(
+          'id,crexi_url,address,city,state_code,zip_code,latitude,longitude,square_footage,asking_rent_per_sqft,description,top_rec_business,top_rec_score,top_rec_summary',
+        );
 
       if (queryError) {
         setError(queryError.message);

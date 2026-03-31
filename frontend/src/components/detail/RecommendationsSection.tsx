@@ -251,7 +251,9 @@ function Placeholder() {
         No recommendations yet
       </p>
       <p className="mt-2 text-sm leading-relaxed text-neutral-500">
-        Click "Generate Recommendations" to get AI-powered business suggestions based on neighborhood demand, competition gaps, and foot traffic analysis.
+        Click &quot;Generate Recommendations&quot; to get AI-powered business
+        suggestions based on neighborhood demand, competition gaps, and foot
+        traffic analysis.
       </p>
     </div>
   );
@@ -359,6 +361,7 @@ export default function RecommendationsSection({ propertyId }: RecommendationsSe
     error,
     partial,
     missingAnalyses,
+    alreadyGenerated,
     loadRecommendations,
     generateRecommendations,
   } =
@@ -439,6 +442,14 @@ export default function RecommendationsSection({ propertyId }: RecommendationsSe
           title="Unable to load recommendations"
           description="Try refreshing the page or generating new recommendations."
           type="error"
+        />
+      )}
+
+      {!isInitialLoading && !error && alreadyGenerated && recommendations.length > 0 && (
+        <StatusCard
+          title="Recommendations already generated"
+          description="For demo safety, public regeneration is disabled once recommendations exist for this property."
+          type="warning"
         />
       )}
 

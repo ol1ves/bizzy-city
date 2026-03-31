@@ -25,8 +25,8 @@ export function usePropertyImages(propertyId: string | null) {
 
       const supabase = getSupabase();
       const { data, error: queryError } = await supabase
-        .from('property_images')
-        .select('*')
+        .from('public_property_images_demo')
+        .select('id,property_id,storage_path,display_order,uploaded_at')
         .eq('property_id', propertyId)
         .order('display_order');
 

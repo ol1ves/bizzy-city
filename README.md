@@ -31,19 +31,24 @@ Live demo: [https://bizzycity.vercel.app/](https://bizzycity.vercel.app/)
 
 ```mermaid
 flowchart LR
-  FrontendApp["NextjsFrontend"] -->|"anon reads"| PublicViews["SupabasePublicViews"]
-  FrontendApp -->|"recommendation requests"| BackendAPI["FastAPIBackend"]
-  BackendAPI -->|"service role access"| CoreTables["SupabaseCoreTables"]
-  BackendAPI -->|"LLM pipeline"| OpenAIProvider["OpenAI"]
-  CoreTables -->|"migration-managed"| PublicViews
+  FrontendApp["NextjsFrontend"] -->|"select property"| BackendAPI["FastAPIBackend"]
+  BackendAPI -->|"load analyses and context"| CoreTables["SupabaseCoreTables"]
+  CoreTables -->|"analysis inputs"| AnalysisStage["AnalysisLayer"]
+  AnalysisStage -->|"structured signals"| ReasoningStage["ReasoningLayer"]
+  ReasoningStage -->|"scored options"| RecommendationStage["RecommendationLayer"]
+  RecommendationStage -->|"persist ranked outputs"| CoreTables
+  CoreTables -->|"public-safe views"| PublicViews["SupabasePublicViews"]
+  PublicViews -->|"display shortlist"| FrontendApp
+  ReasoningStage -->|"LLM support"| OpenAIProvider["OpenAI"]
 ```
 
 ### Runtime Data Flow
 
-1. Frontend fetches property and image data from `public.public_properties_demo` and `public.public_property_images_demo` with the anon key.
-2. Frontend calls backend `GET /api/recommendations/{property_id}?generate={true|false}`.
-3. Backend checks cached recommendations, validates required analyses, applies throttles, and generates with OpenAI when allowed.
-4. Generated recommendations are saved in Supabase and returned to frontend.
+1. Frontend requests recommendations for a selected property via `GET /api/recommendations/{property_id}?generate={true|false}`.
+2. Backend retrieves precomputed property analyses and market context from Supabase, then normalizes them into analysis inputs.
+3. The recommendation engine runs a high-level pipeline: analysis synthesis -> reasoning generation -> option scoring/ranking.
+4. OpenAI is used to support reasoning and summaries, while ranking and recommendation structure are persisted in Supabase.
+5. Frontend renders both map/property context and ranked recommendation outputs through the public-safe read surface.
 
 ## Quick Start (Local Development)
 

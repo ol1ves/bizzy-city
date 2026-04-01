@@ -2,7 +2,7 @@
 
 BizzyCity helps evaluate Manhattan commercial properties and suggests businesses to open using property signals, neighborhood analysis, and recommendation scoring.
 
-Built for the [UB IEEE Innovation Hackathon](https://ub-ieee-hackathon.com/), where this project won in the Smart Infrastructure and Mobility class.
+Built for the [UB IEEE Innovation Hackathon](https://ub-ieee-hackathon.com/) Smart Infrastructure and Mobility class, where this project won overall.
 
 Challenge prompt:
 > "Develop solutions for smart cities, transportation systems, and urban planning using IoT and AI technologies."
